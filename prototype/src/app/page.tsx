@@ -16,6 +16,7 @@ import { SettingsModal } from '@/components/modals/SettingsModal';
 import { QuestionnaireDialog } from '@/components/modals/QuestionnaireDialog';
 import { FrameQuestionnaireModal } from '@/components/modals/FrameQuestionnaireModal';
 import { FeedbackDialog } from '@/components/modals/FeedbackDialog';
+import { AuthModal } from '@/components/modals/AuthModal';
 
 export default function Home() {
   const {
@@ -50,6 +51,7 @@ export default function Home() {
   const [showQuestionnaireDialog, setShowQuestionnaireDialog] = useState(false);
   const [showFrameQuestionnaire, setShowFrameQuestionnaire] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Track which section we're working on
   const [activeSection, setActiveSection] = useState<FrameSection | null>(null);
@@ -262,7 +264,10 @@ export default function Home() {
   return (
     <div className="h-screen flex bg-slate-100">
       {/* Left Navigation */}
-      <LeftNav onSettingsClick={() => setShowSettingsModal(true)} />
+      <LeftNav
+        onSettingsClick={() => setShowSettingsModal(true)}
+        onLoginClick={() => setShowAuthModal(true)}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -351,6 +356,17 @@ export default function Home() {
         onOpenChange={setShowFeedbackDialog}
         frame={selectedFrame ?? null}
         onSubmit={handleSubmitFeedback}
+      />
+
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onSuccess={() => {
+          // Reload frames after successful login
+          if (useAPI) {
+            loadFrames();
+          }
+        }}
       />
     </div>
   );

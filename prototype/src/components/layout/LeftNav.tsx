@@ -1,13 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Briefcase, FileText, Archive, Settings } from 'lucide-react';
+import { Briefcase, FileText, Archive, Settings, LogIn, LogOut, User } from 'lucide-react';
 import { AppSpace } from '@/types';
 import { useFrameStore } from '@/store';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface LeftNavProps {
   onSettingsClick: () => void;
+  onLoginClick: () => void;
 }
 
 const navItems: { id: AppSpace; label: string; icon: React.ElementType; description: string }[] = [
@@ -31,8 +33,9 @@ const navItems: { id: AppSpace; label: string; icon: React.ElementType; descript
   },
 ];
 
-export function LeftNav({ onSettingsClick }: LeftNavProps) {
-  const { currentSpace, setCurrentSpace, getWorkingFrames, getArchivedFrames } = useFrameStore();
+export function LeftNav({ onSettingsClick, onLoginClick }: LeftNavProps) {
+  const { currentSpace, setCurrentSpace, getWorkingFrames, getArchivedFrames, useAPI } = useFrameStore();
+  const { user, isAuthenticated, logout } = useAuthContext();
 
   const workingCount = getWorkingFrames().length;
   const archiveCount = getArchivedFrames().length;
@@ -108,15 +111,56 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
         </ul>
       </nav>
 
-      {/* Settings */}
-      <div className="p-3 border-t border-slate-700">
-        <button
-          onClick={onSettingsClick}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          <Settings className="h-4.5 w-4.5 text-slate-500" />
-          <span className="text-sm font-medium">Settings</span>
-        </button>
+      {/* User & Settings */}
+      <div className="border-t border-slate-700">
+        {/* User Section - Only show in API mode */}
+        {useAPI && (
+          <div className="p-3 border-b border-slate-700">
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-3 px-3 py-2">
+                <div className="h-8 w-8 rounded-full bg-violet-600 flex items-center justify-center">
+                  <span className="text-sm font-medium text-white">
+                    {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {user.name || user.email.split('@')[0]}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {user.email}
+                  </p>
+                </div>
+                <button
+                  onClick={logout}
+                  className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onLoginClick}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <LogIn className="h-4.5 w-4.5 text-slate-500" />
+                <span className="text-sm font-medium">Sign In</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Settings Button */}
+        <div className="p-3">
+          <button
+            onClick={onSettingsClick}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <Settings className="h-4.5 w-4.5 text-slate-500" />
+            <span className="text-sm font-medium">Settings</span>
+          </button>
+        </div>
       </div>
     </div>
   );
