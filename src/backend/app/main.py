@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.api.frames import create_frames_router
 from app.api.templates import create_templates_router
+from app.api.ai import create_ai_router
 from app.services.frame_service import FrameService
 from app.services.template_service import TemplateService
 from app.services.git_service import GitService
@@ -58,6 +59,11 @@ def create_app(data_path: Optional[Path] = None) -> FastAPI:
         create_templates_router(),
         prefix="/api/templates",
         tags=["templates"],
+    )
+    app.include_router(
+        create_ai_router(),
+        prefix="/api",
+        tags=["ai"],
     )
 
     return app
