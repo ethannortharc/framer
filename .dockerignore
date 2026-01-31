@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+env
+.eggs
+*.egg-info
+*.egg
+
+# Node.js
+node_modules
+.npm
+.yarn
+
+# Next.js
+prototype/.next
+prototype/out
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+tests
+
+# Documentation
+*.md
+!README.md
+
+# Local files
+*.local
+.env.local
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db

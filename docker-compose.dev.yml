@@ -1,0 +1,61 @@
+version: '3.8'
+
+# Development configuration with hot reloading
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+services:
+  # PocketBase - Authentication & Database
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: framer-pocketbase-dev
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase_data_dev:/pb_data
+      - ./pocketbase/pb_migrations:/pb_migrations
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend with hot reload
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: framer-backend-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - POCKETBASE_URL=http://pocketbase:8090
+      - DATA_PATH=/data
+    volumes:
+      - ./src/backend/app:/app/app:ro
+      - backend_data_dev:/data
+    command: ["uvicorn", "app.main:get_app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+
+  # Next.js Frontend with hot reload
+  frontend:
+    image: node:20-alpine
+    container_name: framer-frontend-dev
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+    volumes:
+      - ./prototype:/app
+      - /app/node_modules
+      - /app/.next
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - backend
+
+volumes:
+  pocketbase_data_dev:
+  backend_data_dev:

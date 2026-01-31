@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # PocketBase - Authentication & Database
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: framer-pocketbase
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase_data:/pb_data
+      - ./pocketbase/pb_migrations:/pb_migrations
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: framer-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - POCKETBASE_URL=http://pocketbase:8090
+      - DATA_PATH=/data
+    volumes:
+      - backend_data:/data
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+        - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+    container_name: framer-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+    depends_on:
+      - backend
+
+volumes:
+  pocketbase_data:
+  backend_data:
