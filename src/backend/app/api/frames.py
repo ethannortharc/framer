@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.models.frame import Frame, FrameContent, FrameStatus, FrameType, Comment
 from app.services.frame_service import FrameService, FrameNotFoundError
+from app.auth.pocketbase import get_current_user, User
 
 
 # Request/Response models
@@ -88,11 +89,21 @@ def get_frame_service(request: Request) -> FrameService:
     return request.app.state.frame_service
 
 
-def create_frames_router() -> APIRouter:
-    """Create the frames API router."""
+def create_frames_router(require_auth: bool = False) -> APIRouter:
+    """Create the frames API router.
+
+    Args:
+        require_auth: If True, all mutating endpoints require authentication.
+    """
     router = APIRouter()
 
-    @router.post("", status_code=status.HTTP_201_CREATED)
+    # Build dependencies list based on auth requirement
+    def get_auth_dependencies():
+        if require_auth:
+            return [Depends(get_current_user)]
+        return []
+
+    @router.post("", status_code=status.HTTP_201_CREATED, dependencies=get_auth_dependencies())
     def create_frame(
         request: CreateFrameRequest,
         frame_service: FrameService = Depends(get_frame_service),
@@ -151,7 +162,7 @@ def create_frames_router() -> APIRouter:
             for f in frames
         ]
 
-    @router.put("/{frame_id}")
+    @router.put("/{frame_id}", dependencies=get_auth_dependencies())
     def update_frame(
         frame_id: str,
         request: UpdateFrameRequest,
@@ -168,7 +179,7 @@ def create_frames_router() -> APIRouter:
                 detail=f"Frame not found: {frame_id}",
             )
 
-    @router.patch("/{frame_id}/status")
+    @router.patch("/{frame_id}/status", dependencies=get_auth_dependencies())
     def update_status(
         frame_id: str,
         request: UpdateStatusRequest,
@@ -184,7 +195,7 @@ def create_frames_router() -> APIRouter:
                 detail=f"Frame not found: {frame_id}",
             )
 
-    @router.delete("/{frame_id}", status_code=status.HTTP_204_NO_CONTENT)
+    @router.delete("/{frame_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=get_auth_dependencies())
     def delete_frame(
         frame_id: str,
         frame_service: FrameService = Depends(get_frame_service),
@@ -198,7 +209,7 @@ def create_frames_router() -> APIRouter:
                 detail=f"Frame not found: {frame_id}",
             )
 
-    @router.post("/{frame_id}/comments", status_code=status.HTTP_201_CREATED)
+    @router.post("/{frame_id}/comments", status_code=status.HTTP_201_CREATED, dependencies=get_auth_dependencies())
     def add_comment(
         frame_id: str,
         request: CreateCommentRequest,

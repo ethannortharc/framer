@@ -15,12 +15,16 @@ from app.services.git_service import GitService
 from app.services.index_service import IndexService
 
 
-def create_app(data_path: Optional[Path] = None) -> FastAPI:
+def create_app(
+    data_path: Optional[Path] = None,
+    require_auth: bool = False,
+) -> FastAPI:
     """
     Create and configure the FastAPI application.
 
     Args:
         data_path: Path to the data directory. If None, uses /data.
+        require_auth: If True, enables authentication for protected endpoints.
 
     Returns:
         Configured FastAPI application
@@ -51,7 +55,7 @@ def create_app(data_path: Optional[Path] = None) -> FastAPI:
 
     # Include routers
     app.include_router(
-        create_frames_router(),
+        create_frames_router(require_auth=require_auth),
         prefix="/api/frames",
         tags=["frames"],
     )
