@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Frame, FrameSection, AIConfig, User, FrameType, FrameStatus, ReviewComment, FrameFeedback, AppSpace } from '@/types';
+import { Frame, FrameSection, AIConfig, User, FrameType, FrameStatus, ReviewComment, FrameFeedback, AppSpace, AIScoreBreakdown, AIIssue } from '@/types';
 import { mockFrames, mockUsers, currentUser } from '@/data/mockData';
+import { getAPIClient, transformFrameResponse, transformFrameToContent, transformAIEvaluation } from '@/lib/api';
+
+// API mode toggle - set to true to use backend API instead of mock data
+const USE_API = process.env.NEXT_PUBLIC_USE_API === 'true';
 
 interface FrameStore {
   // Data
@@ -14,34 +18,47 @@ interface FrameStore {
   focusedSection: FrameSection | null;
   currentSpace: AppSpace;
 
+  // Loading & Error State
+  isLoading: boolean;
+  error: string | null;
+
   // Track unsaved frames (frames created but not explicitly saved)
   unsavedFrameIds: Set<string>;
 
   // AI Config
   aiConfig: AIConfig | null;
 
+  // API Mode
+  useAPI: boolean;
+
   // Actions
   setSelectedFrame: (id: string | null) => void;
   setFocusedSection: (section: FrameSection | null) => void;
   setCurrentSpace: (space: AppSpace) => void;
   setAIConfig: (config: AIConfig | null) => void;
+  setError: (error: string | null) => void;
+  toggleAPIMode: () => void;
 
   // Frame CRUD
-  createFrame: (type: FrameType) => Frame;
-  updateFrame: (id: string, updates: Partial<Frame>) => void;
-  deleteFrame: (id: string) => void;
-  saveFrame: (id: string) => void;
+  createFrame: (type: FrameType) => Promise<Frame>;
+  updateFrame: (id: string, updates: Partial<Frame>) => Promise<void>;
+  deleteFrame: (id: string) => Promise<void>;
+  saveFrame: (id: string) => Promise<void>;
   discardUnsavedFrame: (id: string) => void;
   isFrameSaved: (id: string) => boolean;
+  loadFrames: () => Promise<void>;
 
   // Frame Status
-  submitForReview: (id: string) => void;
-  markAsReady: (id: string) => void;
-  startFeedback: (id: string) => void;
-  submitFeedback: (id: string, feedback: FrameFeedback) => void;
+  submitForReview: (id: string) => Promise<void>;
+  markAsReady: (id: string) => Promise<void>;
+  startFeedback: (id: string) => Promise<void>;
+  submitFeedback: (id: string, feedback: FrameFeedback) => Promise<void>;
+
+  // AI Operations
+  evaluateFrame: (id: string) => Promise<void>;
 
   // Comments
-  addComment: (frameId: string, section: FrameSection, content: string) => void;
+  addComment: (frameId: string, section: FrameSection, content: string) => Promise<void>;
 
   // Get helpers
   getFrame: (id: string) => Frame | undefined;
@@ -55,7 +72,7 @@ export const useFrameStore = create<FrameStore>()(
   persist(
     (set, get) => ({
       // Initial data
-      frames: mockFrames,
+      frames: USE_API ? [] : mockFrames,
       users: mockUsers,
       currentUser: currentUser,
 
@@ -64,20 +81,97 @@ export const useFrameStore = create<FrameStore>()(
       focusedSection: null,
       currentSpace: 'working',
 
+      // Loading & Error State
+      isLoading: false,
+      error: null,
+
       // Track unsaved frames
       unsavedFrameIds: new Set(),
 
       // AI Config
       aiConfig: null,
 
+      // API Mode
+      useAPI: USE_API,
+
       // Actions
       setSelectedFrame: (id) => set({ selectedFrameId: id }),
       setFocusedSection: (section) => set({ focusedSection: section }),
       setCurrentSpace: (space) => set({ currentSpace: space, selectedFrameId: null }),
       setAIConfig: (config) => set({ aiConfig: config }),
+      setError: (error) => set({ error }),
+      toggleAPIMode: () => {
+        const newMode = !get().useAPI;
+        set({
+          useAPI: newMode,
+          frames: newMode ? [] : mockFrames,
+        });
+        if (newMode) {
+          get().loadFrames();
+        }
+      },
+
+      // Load frames from API
+      loadFrames: async () => {
+        if (!get().useAPI) return;
+
+        set({ isLoading: true, error: null });
+        try {
+          const api = getAPIClient();
+          const frameList = await api.listFrames();
+
+          // Load full details for each frame
+          const frames: Frame[] = [];
+          for (const item of frameList) {
+            try {
+              const response = await api.getFrame(item.id);
+              frames.push(transformFrameResponse(response));
+            } catch {
+              // Skip frames that fail to load
+              console.warn(`Failed to load frame ${item.id}`);
+            }
+          }
+
+          set({ frames, isLoading: false });
+        } catch (err) {
+          set({
+            error: err instanceof Error ? err.message : 'Failed to load frames',
+            isLoading: false,
+          });
+        }
+      },
 
       // Frame CRUD
-      createFrame: (type) => {
+      createFrame: async (type) => {
+        const state = get();
+
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            const response = await api.createFrame({
+              type,
+              owner: state.currentUser.id,
+            });
+            const newFrame = transformFrameResponse(response);
+
+            set((s) => ({
+              frames: [...s.frames, newFrame],
+              selectedFrameId: newFrame.id,
+              isLoading: false,
+            }));
+
+            return newFrame;
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to create frame',
+              isLoading: false,
+            });
+            throw err;
+          }
+        }
+
+        // Mock mode
         const newFrame: Frame = {
           id: `frame-${Date.now()}`,
           type,
@@ -102,16 +196,16 @@ export const useFrameStore = create<FrameStore>()(
             understandsTradeoffs: false,
             knowsValidation: false,
           },
-          ownerId: get().currentUser.id,
+          ownerId: state.currentUser.id,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
 
-        set((state) => {
-          const newUnsaved = new Set(state.unsavedFrameIds);
+        set((s) => {
+          const newUnsaved = new Set(s.unsavedFrameIds);
           newUnsaved.add(newFrame.id);
           return {
-            frames: [...state.frames, newFrame],
+            frames: [...s.frames, newFrame],
             selectedFrameId: newFrame.id,
             unsavedFrameIds: newUnsaved,
           };
@@ -120,34 +214,87 @@ export const useFrameStore = create<FrameStore>()(
         return newFrame;
       },
 
-      updateFrame: (id, updates) => {
-        set((state) => ({
-          frames: state.frames.map((f) =>
+      updateFrame: async (id, updates) => {
+        const state = get();
+
+        // Update local state first (optimistic update)
+        set((s) => ({
+          frames: s.frames.map((f) =>
             f.id === id
               ? { ...f, ...updates, updatedAt: new Date() }
               : f
           ),
         }));
+
+        if (state.useAPI) {
+          try {
+            const frame = get().getFrame(id);
+            if (!frame) return;
+
+            const api = getAPIClient();
+            await api.updateFrame(id, transformFrameToContent(frame));
+          } catch (err) {
+            // Revert on error
+            set({ error: err instanceof Error ? err.message : 'Failed to update frame' });
+          }
+        }
       },
 
-      deleteFrame: (id) => {
-        set((state) => {
-          const newUnsaved = new Set(state.unsavedFrameIds);
+      deleteFrame: async (id) => {
+        const state = get();
+
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            await api.deleteFrame(id);
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to delete frame',
+              isLoading: false,
+            });
+            return;
+          }
+        }
+
+        set((s) => {
+          const newUnsaved = new Set(s.unsavedFrameIds);
           newUnsaved.delete(id);
           return {
-            frames: state.frames.filter((f) => f.id !== id),
-            selectedFrameId: state.selectedFrameId === id ? null : state.selectedFrameId,
+            frames: s.frames.filter((f) => f.id !== id),
+            selectedFrameId: s.selectedFrameId === id ? null : s.selectedFrameId,
             unsavedFrameIds: newUnsaved,
+            isLoading: false,
           };
         });
       },
 
-      saveFrame: (id) => {
-        set((state) => {
-          const newUnsaved = new Set(state.unsavedFrameIds);
+      saveFrame: async (id) => {
+        const state = get();
+
+        if (state.useAPI) {
+          const frame = state.getFrame(id);
+          if (!frame) return;
+
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            await api.updateFrame(id, transformFrameToContent(frame));
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to save frame',
+              isLoading: false,
+            });
+            return;
+          }
+        }
+
+        set((s) => {
+          const newUnsaved = new Set(s.unsavedFrameIds);
           newUnsaved.delete(id);
           return {
             unsavedFrameIds: newUnsaved,
+            isLoading: false,
           };
         });
       },
@@ -164,18 +311,56 @@ export const useFrameStore = create<FrameStore>()(
       },
 
       // Frame Status
-      submitForReview: (id) => {
-        const frame = get().getFrame(id);
+      submitForReview: async (id) => {
+        const state = get();
+        const frame = state.getFrame(id);
         if (!frame) return;
 
-        // Mark as saved when submitting
-        get().saveFrame(id);
+        // Mark as saved
+        await get().saveFrame(id);
 
-        // Simulate AI scoring
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+
+            // Update status via API
+            await api.updateFrameStatus(id, 'in_review');
+
+            // Evaluate frame with AI
+            const evaluation = await api.evaluateFrame(id);
+            const transformed = transformAIEvaluation(evaluation);
+
+            set((s) => ({
+              frames: s.frames.map((f) =>
+                f.id === id
+                  ? {
+                      ...f,
+                      status: 'in_review' as FrameStatus,
+                      aiScore: transformed.score,
+                      aiScoreBreakdown: transformed.breakdown,
+                      aiIssues: transformed.issues,
+                      aiSummary: transformed.summary,
+                      updatedAt: new Date(),
+                    }
+                  : f
+              ),
+              isLoading: false,
+            }));
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to submit for review',
+              isLoading: false,
+            });
+          }
+          return;
+        }
+
+        // Mock mode - simulate AI scoring
         const score = frame.aiScore || Math.floor(Math.random() * 30) + 70;
 
-        set((state) => ({
-          frames: state.frames.map((f) =>
+        set((s) => ({
+          frames: s.frames.map((f) =>
             f.id === id
               ? {
                   ...f,
@@ -188,9 +373,26 @@ export const useFrameStore = create<FrameStore>()(
         }));
       },
 
-      markAsReady: (id) => {
-        set((state) => ({
-          frames: state.frames.map((f) =>
+      markAsReady: async (id) => {
+        const state = get();
+
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            await api.updateFrameStatus(id, 'ready');
+            set({ isLoading: false });
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to mark as ready',
+              isLoading: false,
+            });
+            return;
+          }
+        }
+
+        set((s) => ({
+          frames: s.frames.map((f) =>
             f.id === id
               ? { ...f, status: 'ready' as FrameStatus, updatedAt: new Date() }
               : f
@@ -198,9 +400,26 @@ export const useFrameStore = create<FrameStore>()(
         }));
       },
 
-      startFeedback: (id) => {
-        set((state) => ({
-          frames: state.frames.map((f) =>
+      startFeedback: async (id) => {
+        const state = get();
+
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            await api.updateFrameStatus(id, 'feedback');
+            set({ isLoading: false });
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to start feedback',
+              isLoading: false,
+            });
+            return;
+          }
+        }
+
+        set((s) => ({
+          frames: s.frames.map((f) =>
             f.id === id
               ? { ...f, status: 'feedback' as FrameStatus, updatedAt: new Date() }
               : f
@@ -208,9 +427,27 @@ export const useFrameStore = create<FrameStore>()(
         }));
       },
 
-      submitFeedback: (id, feedback) => {
-        set((state) => ({
-          frames: state.frames.map((f) =>
+      submitFeedback: async (id, feedback) => {
+        const state = get();
+
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            await api.updateFrameStatus(id, 'archived');
+            // Note: Backend doesn't store feedback yet - would need additional endpoint
+            set({ isLoading: false });
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to submit feedback',
+              isLoading: false,
+            });
+            return;
+          }
+        }
+
+        set((s) => ({
+          frames: s.frames.map((f) =>
             f.id === id
               ? {
                   ...f,
@@ -223,18 +460,107 @@ export const useFrameStore = create<FrameStore>()(
         }));
       },
 
+      // AI Operations
+      evaluateFrame: async (id) => {
+        const state = get();
+
+        if (state.useAPI) {
+          set({ isLoading: true, error: null });
+          try {
+            const api = getAPIClient();
+            const evaluation = await api.evaluateFrame(id);
+            const transformed = transformAIEvaluation(evaluation);
+
+            set((s) => ({
+              frames: s.frames.map((f) =>
+                f.id === id
+                  ? {
+                      ...f,
+                      aiScore: transformed.score,
+                      aiScoreBreakdown: transformed.breakdown,
+                      aiIssues: transformed.issues,
+                      aiSummary: transformed.summary,
+                      updatedAt: new Date(),
+                    }
+                  : f
+              ),
+              isLoading: false,
+            }));
+          } catch (err) {
+            set({
+              error: err instanceof Error ? err.message : 'Failed to evaluate frame',
+              isLoading: false,
+            });
+          }
+          return;
+        }
+
+        // Mock mode - simulate AI scoring
+        const frame = state.getFrame(id);
+        if (!frame) return;
+
+        const score = Math.floor(Math.random() * 30) + 70;
+        const breakdown: AIScoreBreakdown = {
+          problemClarity: Math.floor(Math.random() * 5) + 15,
+          userPerspective: Math.floor(Math.random() * 5) + 15,
+          engineeringFraming: Math.floor(Math.random() * 5) + 20,
+          validationThinking: Math.floor(Math.random() * 5) + 15,
+          internalConsistency: Math.floor(Math.random() * 5) + 10,
+        };
+        const issues: AIIssue[] = [];
+
+        if (!frame.problemStatement) {
+          issues.push({
+            id: 'issue-1',
+            section: 'header',
+            severity: 'error',
+            message: 'Problem statement is empty',
+          });
+        }
+
+        set((s) => ({
+          frames: s.frames.map((f) =>
+            f.id === id
+              ? {
+                  ...f,
+                  aiScore: score,
+                  aiScoreBreakdown: breakdown,
+                  aiIssues: issues,
+                  updatedAt: new Date(),
+                }
+              : f
+          ),
+        }));
+      },
+
       // Comments
-      addComment: (frameId, section, content) => {
+      addComment: async (frameId, section, content) => {
+        const state = get();
+
         const comment: ReviewComment = {
           id: `comment-${Date.now()}`,
           section,
-          authorId: get().currentUser.id,
+          authorId: state.currentUser.id,
           content,
           createdAt: new Date(),
         };
 
-        set((state) => ({
-          frames: state.frames.map((f) =>
+        if (state.useAPI) {
+          try {
+            const api = getAPIClient();
+            await api.addComment(frameId, {
+              section,
+              author: state.currentUser.id,
+              content,
+            });
+          } catch (err) {
+            set({ error: err instanceof Error ? err.message : 'Failed to add comment' });
+            return;
+          }
+        }
+
+        set((s) => ({
+          frames: s.frames.map((f) =>
             f.id === frameId
               ? {
                   ...f,
@@ -258,6 +584,7 @@ export const useFrameStore = create<FrameStore>()(
       partialize: (state) => ({
         frames: state.frames,
         aiConfig: state.aiConfig,
+        useAPI: state.useAPI,
       }),
     }
   )

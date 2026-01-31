@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, X, Check, RefreshCw, Sparkles } from 'lucide-react';
 import { FrameSection, ChatMessage, Frame } from '@/types';
+import { useFrameStore } from '@/store';
+import { getAPIClient } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +38,7 @@ export function RefineDialog({
   frame,
   onApply,
 }: RefineDialogProps) {
+  const { useAPI } = useFrameStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -105,7 +108,7 @@ export function RefineDialog({
     return hasContent ? questions[section].filled : questions[section].empty;
   };
 
-  const generateAIResponse = (userMessage: string, section: FrameSection): { content: string; suggestion?: string } => {
+  const generateMockResponse = (userMessage: string, section: FrameSection): { content: string; suggestion?: string } => {
     // Contextual responses based on section and user input
     const responses: Record<FrameSection, Array<{ content: string; suggestion?: string }>> = {
       header: [
@@ -143,7 +146,7 @@ export function RefineDialog({
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !section) return;
+    if (!input.trim() || isLoading || !section || !frame) return;
 
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -155,18 +158,51 @@ export function RefineDialog({
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      if (useAPI) {
+        // Use real API for chat
+        const api = getAPIClient();
+        const response = await api.chat({
+          message: userMessage.content,
+          context: {
+            frame_id: frame.id,
+            section: section,
+            content: editableContent,
+          },
+        });
 
-    const response = generateAIResponse(userMessage.content, section);
-    const aiResponse: ChatMessage = {
-      id: `msg-${Date.now()}-ai`,
-      role: 'assistant',
-      content: response.content,
-      suggestion: response.suggestion,
-    };
+        const aiResponse: ChatMessage = {
+          id: `msg-${Date.now()}-ai`,
+          role: 'assistant',
+          content: response.message,
+          suggestion: response.suggestion,
+        };
 
-    setMessages((prev) => [...prev, aiResponse]);
+        setMessages((prev) => [...prev, aiResponse]);
+      } else {
+        // Mock mode - simulate AI response delay
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        const response = generateMockResponse(userMessage.content, section);
+        const aiResponse: ChatMessage = {
+          id: `msg-${Date.now()}-ai`,
+          role: 'assistant',
+          content: response.content,
+          suggestion: response.suggestion,
+        };
+
+        setMessages((prev) => [...prev, aiResponse]);
+      }
+    } catch (err) {
+      const errorResponse: ChatMessage = {
+        id: `msg-${Date.now()}-error`,
+        role: 'assistant',
+        content: 'Sorry, I encountered an error processing your request. Please try again.',
+      };
+      setMessages((prev) => [...prev, errorResponse]);
+      console.error('Refine chat error:', err);
+    }
+
     setIsLoading(false);
   };
 
@@ -191,6 +227,11 @@ export function RefineDialog({
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-violet-500" />
               Refine: {sectionLabels[section]}
+              {useAPI && (
+                <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded ml-2">
+                  API
+                </span>
+              )}
             </DialogTitle>
           </div>
         </DialogHeader>

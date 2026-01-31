@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Settings, User, Zap, Users } from 'lucide-react';
+import { Settings, User, Zap, Users, Server } from 'lucide-react';
 import { useFrameStore } from '@/store';
 import {
   Dialog,
@@ -24,7 +24,11 @@ export function SettingsModal({
   onOpenChange,
   onOpenAIConfig,
 }: SettingsModalProps) {
-  const { currentUser, aiConfig } = useFrameStore();
+  const { currentUser, aiConfig, useAPI, toggleAPIMode, loadFrames } = useFrameStore();
+
+  const handleToggleAPI = () => {
+    toggleAPIMode();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,6 +41,39 @@ export function SettingsModal({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Data Source Section */}
+          <SettingsSection icon={Server} title="Data Source">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div>
+                  <div className="text-sm font-medium text-slate-700">
+                    {useAPI ? 'Backend API' : 'Local Mock Data'}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {useAPI
+                      ? 'Connected to FastAPI backend'
+                      : 'Using local mock data (no backend required)'}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={useAPI ? 'default' : 'outline'}
+                  onClick={handleToggleAPI}
+                  className={cn(
+                    useAPI && 'bg-emerald-600 hover:bg-emerald-700'
+                  )}
+                >
+                  {useAPI ? 'API Mode' : 'Mock Mode'}
+                </Button>
+              </div>
+              {useAPI && (
+                <div className="text-xs text-slate-500 px-1">
+                  API URL: {process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}
+                </div>
+              )}
+            </div>
+          </SettingsSection>
+
           {/* User Profile Section */}
           <SettingsSection icon={User} title="Profile">
             <div className="space-y-3">
@@ -68,7 +105,16 @@ export function SettingsModal({
           {/* AI Configuration Section */}
           <SettingsSection icon={Zap} title="AI Configuration">
             <div className="space-y-3">
-              {aiConfig ? (
+              {useAPI ? (
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                  <div className="text-sm font-medium text-emerald-700">
+                    Using Backend AI
+                  </div>
+                  <div className="text-xs text-emerald-600">
+                    AI features powered by backend agents
+                  </div>
+                </div>
+              ) : aiConfig ? (
                 <>
                   <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50 border border-emerald-200">
                     <div>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Frame, FrameSection, AIIssue } from '@/types';
 import { useFrameStore } from '@/store';
+import { getAPIClient } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn, getScoreColor } from '@/lib/utils';
@@ -33,7 +34,7 @@ export function FloatingAISidebar({
   focusedSection,
   onOpenAIConfig,
 }: FloatingAISidebarProps) {
-  const { aiConfig, updateFrame, setFocusedSection } = useFrameStore();
+  const { aiConfig, updateFrame, setFocusedSection, evaluateFrame, useAPI, isLoading, error } = useFrameStore();
   const [chatInput, setChatInput] = useState('');
   const [isAssessing, setIsAssessing] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
@@ -47,79 +48,26 @@ export function FloatingAISidebar({
   };
 
   const handleAssessFrame = async () => {
-    if (!aiConfig) {
+    if (!aiConfig && !useAPI) {
       onOpenAIConfig();
       return;
     }
 
     setIsAssessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Generate realistic score based on frame content
-    let score = 50;
-    if (frame.problemStatement.length > 50) score += 10;
-    if (frame.userPerspective.user) score += 5;
-    if (frame.userPerspective.journeySteps.length >= 3) score += 10;
-    if (frame.userPerspective.painPoints.length > 0) score += 5;
-    if (frame.engineeringFraming.principles.length > 0) score += 10;
-    if (frame.engineeringFraming.nonGoals.length > 0) score += 5;
-    if (frame.validationThinking.successSignals.length > 0) score += 10;
-    if (frame.validationThinking.disconfirmingEvidence.length > 0) score += 10;
-
-    score = Math.min(score, 100);
-
-    const issues: AIIssue[] = [];
-    if (!frame.userPerspective.user) {
-      issues.push({
-        id: `issue-${Date.now()}-1`,
-        section: 'user',
-        severity: 'error',
-        message: 'No user/persona defined. Who experiences this problem?',
-      });
+    try {
+      // Use the store's evaluateFrame which handles both API and mock modes
+      await evaluateFrame(frame.id);
+    } catch (err) {
+      console.error('Failed to assess frame:', err);
     }
-    if (frame.userPerspective.journeySteps.length < 3) {
-      issues.push({
-        id: `issue-${Date.now()}-2`,
-        section: 'user',
-        severity: 'error',
-        message: `User journey has only ${frame.userPerspective.journeySteps.length} steps. Minimum 3 required.`,
-      });
-    }
-    if (frame.validationThinking.disconfirmingEvidence.length === 0) {
-      issues.push({
-        id: `issue-${Date.now()}-3`,
-        section: 'validation',
-        severity: 'warning',
-        message: 'No disconfirming evidence specified. What would prove this framing wrong?',
-      });
-    }
-    if (frame.engineeringFraming.nonGoals.length === 0) {
-      issues.push({
-        id: `issue-${Date.now()}-4`,
-        section: 'engineering',
-        severity: 'warning',
-        message: 'No explicit non-goals. What are you intentionally NOT doing?',
-      });
-    }
-
-    updateFrame(frame.id, {
-      aiScore: score,
-      aiScoreBreakdown: {
-        problemClarity: Math.min(20, Math.round(score * 0.2)),
-        userPerspective: Math.min(20, Math.round(score * 0.2)),
-        engineeringFraming: Math.min(25, Math.round(score * 0.25)),
-        validationThinking: Math.min(20, Math.round(score * 0.2)),
-        internalConsistency: Math.min(15, Math.round(score * 0.15)),
-      },
-      aiIssues: issues,
-    });
 
     setIsAssessing(false);
   };
 
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
-    if (!aiConfig) {
+    if (!aiConfig && !useAPI) {
       onOpenAIConfig();
       return;
     }
@@ -129,25 +77,47 @@ export function FloatingAISidebar({
     setChatInput('');
     setIsThinking(true);
 
-    // Simulate AI response
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      if (useAPI) {
+        // Use real API for chat
+        const api = getAPIClient();
+        const response = await api.chat({
+          message: userMessage,
+          context: {
+            frame_id: frame.id,
+            section: focusedSection || undefined,
+            content: focusedSection ? getSectionContent(frame, focusedSection) : undefined,
+          },
+        });
+        setChatMessages(prev => [...prev, { role: 'assistant', content: response.message }]);
+      } else {
+        // Mock mode - simulate AI response
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const responses = [
-      "Based on your frame, I suggest being more specific about the user's context. What environment are they working in?",
-      "Consider adding measurable success criteria. How will you know when this is truly fixed?",
-      "The engineering principles could be more concrete. Instead of 'should work correctly', specify the exact behavior expected.",
-      "Good progress! The user journey is clear. Now consider what might invalidate your assumptions.",
-      "I notice the non-goals section is empty. What are you explicitly choosing NOT to do?",
-    ];
+        const responses = [
+          "Based on your frame, I suggest being more specific about the user's context. What environment are they working in?",
+          "Consider adding measurable success criteria. How will you know when this is truly fixed?",
+          "The engineering principles could be more concrete. Instead of 'should work correctly', specify the exact behavior expected.",
+          "Good progress! The user journey is clear. Now consider what might invalidate your assumptions.",
+          "I notice the non-goals section is empty. What are you explicitly choosing NOT to do?",
+        ];
 
-    const aiResponse = responses[Math.floor(Math.random() * responses.length)];
-    setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+        const aiResponse = responses[Math.floor(Math.random() * responses.length)];
+        setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+      }
+    } catch (err) {
+      setChatMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+      }]);
+      console.error('Chat error:', err);
+    }
+
     setIsThinking(false);
   };
 
   const handleIssueClick = (section: FrameSection) => {
     setFocusedSection(section);
-    // Scroll to section would be handled by the parent
   };
 
   if (!open) return null;
@@ -161,11 +131,23 @@ export function FloatingAISidebar({
             <Bot className="h-4 w-4 text-white" />
           </div>
           <span className="font-semibold text-slate-900">AI Assistant</span>
+          {useAPI && (
+            <span className="text-xs px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded">
+              API
+            </span>
+          )}
         </div>
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="px-5 py-2 bg-red-50 border-b border-red-100 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
@@ -185,7 +167,7 @@ export function FloatingAISidebar({
         {/* Quality Score */}
         <ScorePanel
           frame={frame}
-          isAssessing={isAssessing}
+          isAssessing={isAssessing || isLoading}
           onAssess={handleAssessFrame}
         />
 
@@ -250,6 +232,19 @@ export function FloatingAISidebar({
       </div>
     </div>
   );
+}
+
+function getSectionContent(frame: Frame, section: FrameSection): string {
+  switch (section) {
+    case 'header':
+      return frame.problemStatement;
+    case 'user':
+      return JSON.stringify(frame.userPerspective);
+    case 'engineering':
+      return JSON.stringify(frame.engineeringFraming);
+    case 'validation':
+      return JSON.stringify(frame.validationThinking);
+  }
 }
 
 function SuggestionsPanel({
@@ -376,6 +371,13 @@ function ScorePanel({ frame, isAssessing, onAssess }: ScorePanelProps) {
               <span className="text-red-600 font-medium">Significant gaps</span>
             )}
           </p>
+
+          {/* AI Summary */}
+          {frame.aiSummary && (
+            <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded">
+              {frame.aiSummary}
+            </p>
+          )}
 
           {/* Score Breakdown */}
           {frame.aiScoreBreakdown && (

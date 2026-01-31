@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFrameStore } from '@/store';
 import { FrameType, FrameSection, Frame, FrameFeedback } from '@/types';
 import { LeftNav } from '@/components/layout/LeftNav';
@@ -27,7 +27,19 @@ export default function Home() {
     addComment,
     submitFeedback,
     currentSpace,
+    useAPI,
+    loadFrames,
+    isLoading,
+    error,
+    setError,
   } = useFrameStore();
+
+  // Load frames from API on mount if in API mode
+  useEffect(() => {
+    if (useAPI) {
+      loadFrames();
+    }
+  }, [useAPI, loadFrames]);
 
   // Modal states
   const [showNewFrameModal, setShowNewFrameModal] = useState(false);
@@ -48,7 +60,7 @@ export default function Home() {
   const selectedFrame = selectedFrameId ? getFrame(selectedFrameId) : null;
 
   // Handle frame type selection from NewFrameModal
-  const handleFrameTypeSelected = (type: FrameType, useQuestionnaire: boolean) => {
+  const handleFrameTypeSelected = async (type: FrameType, useQuestionnaire: boolean) => {
     if (useQuestionnaire) {
       // Start questionnaire flow
       setPendingFrameType(type);
@@ -56,29 +68,37 @@ export default function Home() {
       setShowFrameQuestionnaire(true);
     } else {
       // Create frame directly with manual input
-      const frame = createFrame(type);
-      setSelectedFrame(frame.id);
-      setShowNewFrameModal(false);
+      try {
+        const frame = await createFrame(type);
+        setSelectedFrame(frame.id);
+        setShowNewFrameModal(false);
+      } catch (err) {
+        console.error('Failed to create frame:', err);
+      }
     }
   };
 
   // Handle questionnaire-generated frame content
-  const handleApplyFrameQuestionnaire = (data: Partial<Frame>) => {
+  const handleApplyFrameQuestionnaire = async (data: Partial<Frame>) => {
     if (!pendingFrameType) return;
 
-    // Create the frame with questionnaire data
-    const frame = createFrame(pendingFrameType);
+    try {
+      // Create the frame with questionnaire data
+      const frame = await createFrame(pendingFrameType);
 
-    // Apply the questionnaire data
-    updateFrame(frame.id, {
-      problemStatement: data.problemStatement || '',
-      userPerspective: data.userPerspective || frame.userPerspective,
-      engineeringFraming: data.engineeringFraming || frame.engineeringFraming,
-      validationThinking: data.validationThinking || frame.validationThinking,
-    });
+      // Apply the questionnaire data
+      await updateFrame(frame.id, {
+        problemStatement: data.problemStatement || '',
+        userPerspective: data.userPerspective || frame.userPerspective,
+        engineeringFraming: data.engineeringFraming || frame.engineeringFraming,
+        validationThinking: data.validationThinking || frame.validationThinking,
+      });
 
-    setSelectedFrame(frame.id);
-    setPendingFrameType(null);
+      setSelectedFrame(frame.id);
+      setPendingFrameType(null);
+    } catch (err) {
+      console.error('Failed to create frame from questionnaire:', err);
+    }
   };
 
   // Handle opening refine dialog
@@ -246,6 +266,26 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm text-red-700">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-700 text-sm font-medium"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
+            <span className="text-sm text-blue-700">Loading...</span>
+          </div>
+        )}
+
         {renderSpaceContent()}
       </div>
 
