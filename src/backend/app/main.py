@@ -1,6 +1,7 @@
 """
 FastAPI application entry point for Framer backend.
 """
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -39,13 +40,13 @@ def create_app(
         version="0.1.0",
     )
 
-    # Add CORS middleware
+    # Configure CORS from environment
+    cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

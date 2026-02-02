@@ -33,3 +33,5 @@ Thumbs.db
 .env
 .env.local
 .env*.local
+config/.env.local
+config/.env.*.local

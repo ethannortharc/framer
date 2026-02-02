@@ -1,34 +1,44 @@
 version: '3.8'
 
+# Base configuration - Use with environment-specific overrides
+# Usage: docker-compose --env-file config/.env.dev up -d
+#        docker-compose --env-file config/.env.prod up -d
+
 services:
   # PocketBase - Authentication & Database
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
-    container_name: framer-pocketbase
-    restart: unless-stopped
+    image: ${POCKETBASE_IMAGE:-ghcr.io/muchobien/pocketbase:latest}
+    container_name: ${POCKETBASE_CONTAINER_NAME:-framer-pocketbase}
+    restart: ${RESTART_POLICY:-unless-stopped}
     ports:
-      - "8090:8090"
+      - "${POCKETBASE_PORT:-8090}:8090"
     volumes:
       - pocketbase_data:/pb_data
       - ./pocketbase/pb_migrations:/pb_migrations
+    environment:
+      - ADMIN_EMAIL=${POCKETBASE_ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${POCKETBASE_ADMIN_PASSWORD:-}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: ${HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
 
   # FastAPI Backend
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: framer-backend
-    restart: unless-stopped
+    container_name: ${BACKEND_CONTAINER_NAME:-framer-backend}
+    restart: ${RESTART_POLICY:-unless-stopped}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
-      - POCKETBASE_URL=http://pocketbase:8090
-      - DATA_PATH=/data
+      - POCKETBASE_URL=${POCKETBASE_INTERNAL_URL:-http://pocketbase:8090}
+      - DATA_PATH=${BACKEND_DATA_PATH:-/data}
+      - LOG_LEVEL=${BACKEND_LOG_LEVEL:-info}
+      - CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000}
+      - DEBUG=${DEBUG:-false}
     volumes:
       - backend_data:/data
     depends_on:
@@ -36,9 +46,9 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: ${HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${HEALTHCHECK_RETRIES:-5}
 
   # Next.js Frontend
   frontend:
@@ -46,15 +56,17 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-        - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
-    container_name: framer-frontend
-    restart: unless-stopped
+        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+    container_name: ${FRONTEND_CONTAINER_NAME:-framer-frontend}
+    restart: ${RESTART_POLICY:-unless-stopped}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-      - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+      - NEXT_PUBLIC_API_TIMEOUT=${NEXT_PUBLIC_API_TIMEOUT:-30000}
+      - NODE_ENV=${NODE_ENV:-production}
     depends_on:
       - backend
 
