@@ -1,0 +1,8 @@
+# Auth state files (contain sensitive session data)
+.auth/user.json
+.auth/*.json
+!.auth/.gitkeep
+
+# Test results
+test-results/
+playwright-report/
