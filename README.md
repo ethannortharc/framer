@@ -92,7 +92,7 @@ cd src/backend
 uvicorn app.main:get_app --reload --port 8000
 
 # Terminal 2: Frontend
-cd prototype
+cd src/frontend
 npm run dev
 ```
 
@@ -100,16 +100,29 @@ Open http://localhost:3000 in your browser.
 
 ### Docker Deployment
 
-```bash
-# Production
-docker-compose up -d
+The project supports multi-environment deployment via configuration files.
 
-# Development (with hot reload)
-docker-compose -f docker-compose.dev.yml up
+```bash
+# Using the helper script (recommended)
+./scripts/docker.sh dev up      # Development
+./scripts/docker.sh qa up       # QA/Staging
+./scripts/docker.sh prod up     # Production
+
+# Or manually with env file
+docker compose --env-file config/.env.dev up -d
+
+# Stop services
+./scripts/docker.sh dev down
 ```
 
+**Environment Configuration** (`config/` directory):
+- `.env.common` - Shared settings across all environments
+- `.env.dev` - Development (ports 3000, 8000, 8090)
+- `.env.qa` - QA/Staging (ports 3001, 8001, 8091)
+- `.env.prod` - Production (ports 80, 8000, 8090)
+
 Services:
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:3000 (dev)
 - Backend API: http://localhost:8000
 - PocketBase Admin: http://localhost:8090/_/
 
@@ -117,35 +130,45 @@ Services:
 
 ```
 framer/
-├── src/backend/              # FastAPI backend
-│   └── app/
-│       ├── api/              # REST endpoints
-│       ├── agents/           # AI agents (evaluator, generator, refiner)
-│       ├── auth/             # PocketBase authentication
-│       ├── models/           # Pydantic data models
-│       └── services/         # Business logic
-│
-├── prototype/                # Next.js frontend
-│   └── src/
-│       ├── app/              # Next.js app router
-│       ├── components/       # React components
-│       ├── contexts/         # React contexts (auth)
-│       ├── hooks/            # Custom React hooks
-│       ├── lib/              # API client, utilities
-│       ├── store/            # Zustand state management
-│       └── types/            # TypeScript types
+├── src/
+│   ├── backend/              # FastAPI backend
+│   │   └── app/
+│   │       ├── api/          # REST endpoints
+│   │       ├── agents/       # AI agents (evaluator, generator, refiner)
+│   │       ├── auth/         # PocketBase authentication
+│   │       ├── models/       # Pydantic data models
+│   │       └── services/     # Business logic
+│   │
+│   └── frontend/             # Next.js production frontend
+│       └── src/
+│           ├── app/          # Next.js app router (login, dashboard, frame)
+│           ├── components/   # React components (ui, layout, dashboard, frame)
+│           ├── contexts/     # React contexts (AuthContext)
+│           ├── lib/          # API client, auth, utilities
+│           ├── store/        # Zustand state management
+│           └── types/        # TypeScript types
 │
 ├── tests/
 │   └── backend/              # Python pytest tests (156 tests)
 │       ├── unit/             # Unit tests
 │       └── integration/      # API integration tests
 │
-├── docker-compose.yml        # Production deployment
-├── docker-compose.dev.yml    # Development environment
+├── config/                   # Environment configuration
+│   ├── .env.common           # Shared settings
+│   ├── .env.dev              # Development
+│   ├── .env.qa               # QA/Staging
+│   └── .env.prod             # Production
+│
+├── scripts/                  # Helper scripts
+│   └── docker.sh             # Multi-environment Docker management
+│
+├── docker-compose.yml        # Docker Compose configuration
 └── Makefile                  # Common commands
 ```
 
 ## Testing
+
+**Total: 202 tests (156 backend + 46 E2E)**
 
 ### Backend Tests (pytest)
 
@@ -163,20 +186,25 @@ python -m pytest tests/backend/ -v
 
 ```bash
 # Run E2E tests
-make test-e2e
+cd src/frontend && npm run test:e2e
 
 # Run with UI
-cd prototype && npm run test:e2e:ui
+cd src/frontend && npm run test:e2e:ui
 
 # Run headed (visible browser)
-cd prototype && npm run test:e2e:headed
+cd src/frontend && npm run test:e2e:headed
+
+# Debug mode
+cd src/frontend && npm run test:e2e:debug
 ```
 
-**Test Suites**:
-- `navigation.spec.ts` - Page navigation and settings
-- `frames.spec.ts` - Frame CRUD operations
-- `ai-features.spec.ts` - AI sidebar and assessment
-- `auth.spec.ts` - Login/register flows
+**Test Suites** (46 tests):
+| Suite | Tests | Coverage |
+|-------|-------|----------|
+| `auth.spec.ts` | 9 | Login/register flows, validation, sign out |
+| `navigation.spec.ts` | 7 | Sidebar navigation, active states, modals |
+| `frames.spec.ts` | 19 | CRUD operations, kanban board, checklist |
+| `ai-features.spec.ts` | 11 | AI sidebar, guidance system, templates |
 
 ## API Reference
 
@@ -210,26 +238,35 @@ cd prototype && npm run test:e2e:headed
 
 ### Environment Variables
 
-**Frontend** (`.env.local`):
+Configuration files are stored in `config/` directory. Each environment has its own `.env` file.
+
+**Frontend**:
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
-NEXT_PUBLIC_USE_API=false  # Set to 'true' for API mode
 ```
 
 **Backend**:
 ```env
 POCKETBASE_URL=http://localhost:8090
+CORS_ORIGINS=http://localhost:3000
 DATA_PATH=/data
 ```
 
-### Mock vs API Mode
+**Docker Compose** (via `config/.env.*`):
+```env
+# Ports
+POCKETBASE_PORT=8090
+BACKEND_PORT=8000
+FRONTEND_PORT=3000
 
-The frontend supports two modes:
-- **Mock Mode** (default): Uses local mock data, no backend required
-- **API Mode**: Connects to FastAPI backend
+# CORS
+BACKEND_CORS_ORIGINS=http://localhost:3000
 
-Toggle in Settings → Data Source.
+# API URLs (used at build time)
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+```
 
 ## Frame Templates
 

@@ -2,7 +2,7 @@
 
 **Generated:** 2026-02-02
 **Environment:** Local Development
-**Test Runner:** pytest 9.0.2 (Backend), Playwright (E2E)
+**Test Runner:** pytest 9.0.2 (Backend), Playwright 1.52.0 (E2E)
 
 ---
 
@@ -12,15 +12,16 @@
 |------------|-------|--------|--------|-----------|
 | Backend Unit Tests | 111 | 111 | 0 | **100%** |
 | Backend Integration Tests | 45 | 45 | 0 | **100%** |
-| E2E Tests (Chromium) | 21 | 1 | 20 | 5% |
-| **Total** | **177** | **157** | **20** | **89%** |
+| E2E Tests (Chromium) | 46 | 46 | 0 | **100%** |
+| **Total** | **202** | **202** | **0** | **100%** |
 
 ### Key Findings
 
-- ✅ **Backend is fully functional** - All 156 tests pass
-- ⚠️ **E2E tests need updates** - Written for prototype, not production frontend
-- ✅ **Core API endpoints verified** - CRUD operations, auth, AI features
-- ✅ **Service layer robust** - Frame, Template, Git, Index services all passing
+- **Backend is fully functional** - All 156 tests pass
+- **E2E tests complete** - All 46 tests pass with authentication
+- **Core API endpoints verified** - CRUD operations, auth, AI features
+- **Service layer robust** - Frame, Template, Git, Index services all passing
+- **Production frontend tested** - Authentication flow, navigation, frame management
 
 ---
 
@@ -30,8 +31,8 @@
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_frame.py` | 15 | ✅ All Pass |
-| `test_template.py` | 5 | ✅ All Pass |
+| `test_frame.py` | 15 | All Pass |
+| `test_template.py` | 5 | All Pass |
 
 **Coverage:**
 - Frame status and type enums
@@ -45,10 +46,10 @@
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_frame_service.py` | 16 | ✅ All Pass |
-| `test_template_service.py` | 10 | ✅ All Pass |
-| `test_git_service.py` | 9 | ✅ All Pass |
-| `test_index_service.py` | 8 | ✅ All Pass |
+| `test_frame_service.py` | 16 | All Pass |
+| `test_template_service.py` | 10 | All Pass |
+| `test_git_service.py` | 9 | All Pass |
+| `test_index_service.py` | 8 | All Pass |
 
 **Coverage:**
 - Frame CRUD operations (create, read, update, delete)
@@ -66,9 +67,9 @@
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_evaluator.py` | 9 | ✅ All Pass |
-| `test_generator.py` | 6 | ✅ All Pass |
-| `test_refiner.py` | 8 | ✅ All Pass |
+| `test_evaluator.py` | 9 | All Pass |
+| `test_generator.py` | 6 | All Pass |
+| `test_refiner.py` | 8 | All Pass |
 
 **Coverage:**
 - Agent creation and configuration
@@ -83,9 +84,9 @@
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_frames_api.py` | 16 | ✅ All Pass |
-| `test_templates_api.py` | 7 | ✅ All Pass |
-| `test_ai_api.py` | 7 | ✅ All Pass |
+| `test_frames_api.py` | 16 | All Pass |
+| `test_templates_api.py` | 7 | All Pass |
+| `test_ai_api.py` | 7 | All Pass |
 
 **Coverage:**
 - `POST /api/frames` - Create frames with/without content
@@ -105,7 +106,7 @@
 
 | Test File | Tests | Status |
 |-----------|-------|--------|
-| `test_pocketbase_auth.py` | 15 | ✅ All Pass |
+| `test_pocketbase_auth.py` | 15 | All Pass |
 
 **Coverage:**
 - Auth service creation
@@ -117,67 +118,75 @@
 
 ---
 
-## E2E Tests (1 Passed, 20 Failed)
+## E2E Tests (46 Passed)
 
 ### Test Results by Category
 
-| Category | Passed | Failed | Notes |
-|----------|--------|--------|-------|
-| Authentication | 0 | 6 | Tests expect prototype UI |
-| Frame Management | 1 | 5 | Tests expect no auth required |
-| Navigation | 0 | 4 | Tests expect dashboard access |
-| AI Features | 0 | 5 | Tests expect direct frame access |
+| Category | Tests | Status | Coverage |
+|----------|-------|--------|----------|
+| Authentication | 9 | All Pass | Login/register flow, validation, sign out |
+| Navigation | 7 | All Pass | Sidebar navigation, active states, modals |
+| Frame Management | 19 | All Pass | CRUD, kanban board, checklist, filtering |
+| AI Features | 11 | All Pass | AI sidebar, guidance system, templates |
 
-### Root Cause Analysis
+### Test Files
 
-The E2E tests were written for the **prototype frontend** which:
-- Has mock/API mode toggle
-- Shows dashboard directly without auth
-- Has a Settings button in sidebar
+**`auth.setup.ts`** - Authentication Setup
+- Creates/authenticates test user before tests
+- Saves authentication state for reuse
 
-The **production frontend** differs:
-- Requires authentication (redirects to `/login`)
-- No mock mode (API-only)
-- Settings only accessible after login
+**`auth.spec.ts`** - Authentication Tests (9)
+- Redirect unauthenticated users to login
+- Show login form by default
+- Switch between login and register modes
+- Disable submit when form empty
+- Show error for invalid credentials
+- Require password confirmation on register
+- Show user info in sidebar
+- Sign out button functionality
+- Redirect after sign out
 
-### Passed Test
-- `should display frame list in dashboard` - Basic dashboard visibility
+**`navigation.spec.ts`** - Navigation Tests (7)
+- Display main layout elements (header, branding)
+- Display navigation items in sidebar
+- Switch to Templates space
+- Switch to Archive space
+- Switch back to Working Space
+- Show active state for current navigation item
+- Open settings modal
 
-### Failed Tests Summary
+**`frames.spec.ts`** - Frame Management Tests (19)
+- Display kanban board with columns
+- New Frame button visibility
+- Open new frame modal
+- Create Bug Fix frame
+- Create Feature frame
+- Create Exploration frame
+- Edit problem statement
+- Navigate back to dashboard using breadcrumb
+- Show frame type selector on detail page
+- Show frame status on detail page
+- Show owner info on detail page
+- Save Draft button functionality
+- Checklist items visibility
+- Toggle checklist item
+- Show checklist progress
+- Filter frames with search
+- Type filter functionality
+- Owner filter functionality
 
-1. **Authentication Tests (6)**
-   - All tests try to click "Settings" which isn't visible on login page
-   - Need to authenticate first in production
-
-2. **Frame Management Tests (5)**
-   - Tests try to click "New Frame" button
-   - Button only visible after authentication
-
-3. **Navigation Tests (4)**
-   - Tests expect "Working Space", "Templates", "Archive" visible
-   - These are only visible after login
-
-4. **AI Features Tests (5)**
-   - Tests try to create frames and access AI sidebar
-   - Require authentication first
-
-### Recommended E2E Test Updates
-
-```typescript
-// Before each test, authenticate:
-test.beforeEach(async ({ page }) => {
-  // Go to login
-  await page.goto('/login');
-
-  // Login with test user
-  await page.fill('[placeholder="you@example.com"]', 'test@example.com');
-  await page.fill('[placeholder="Enter your password"]', 'TestPassword123!');
-  await page.click('button:has-text("Sign In")');
-
-  // Wait for dashboard
-  await page.waitForURL('/dashboard');
-});
-```
+**`ai-features.spec.ts`** - AI Features Tests (11)
+- Show AI-related UI elements on frame detail
+- Collapsible sections
+- Section empty state with guidance
+- Checklist with AI-related items
+- Submit for Review button when checklist incomplete
+- Enable Submit for Review when checklist complete
+- Action buttons in footer
+- Status bar at bottom
+- Frame templates with type-specific content
+- Guidance text in sections
+- Checklist item descriptions
 
 ---
 
@@ -185,9 +194,9 @@ test.beforeEach(async ({ page }) => {
 
 | Service | Port | Status |
 |---------|------|--------|
-| PocketBase | 8090 | ✅ Healthy |
-| FastAPI Backend | 8000 | ✅ Running |
-| Next.js Frontend | 3000 | ✅ Running |
+| PocketBase | 8090 | Healthy |
+| FastAPI Backend | 8000 | Running |
+| Next.js Frontend | 3000 | Running |
 
 ---
 
@@ -204,35 +213,45 @@ Result: 156 passed
 ### E2E Tests
 ```
 Browser: Chromium
-Playwright: Latest
-Duration: 1.1m
-Result: 1 passed, 20 failed
+Playwright: 1.52.0
+Workers: 10 (parallel)
+Duration: 18.4s
+Result: 46 passed
 ```
 
 ---
 
-## Recommendations
+## Test Infrastructure
 
-### Immediate Actions
-1. **Update E2E tests for production frontend**
-   - Add authentication before each test
-   - Remove mock mode toggle references
-   - Update selectors for production UI
+### Authentication Setup
+E2E tests use Playwright's authentication state persistence:
+1. `auth.setup.ts` runs before all tests
+2. Creates test user or logs in existing user
+3. Saves auth state to `tests/e2e/.auth/user.json`
+4. All other tests reuse this authentication
 
-2. **Create test user in PocketBase**
-   - Set up dedicated test account
-   - Use environment variables for credentials
+### Test Fixtures
+Custom fixtures in `fixtures.ts`:
+- `createFrame(type)` - Creates a frame and navigates to detail page
+- Reusable authentication context
 
-### Future Improvements
-1. Add API integration tests for CORS validation
-2. Add performance benchmarks
-3. Add visual regression tests
-4. Set up CI/CD test automation
+### Parallel Execution
+Tests run in parallel with 10 workers for faster execution.
 
 ---
 
 ## Conclusion
 
-The backend is **production-ready** with 100% test coverage on all unit and integration tests. The E2E tests require updates to work with the production frontend's authentication flow. The core functionality (frame management, templates, AI features, authentication) is verified and working correctly through API-level testing.
+**All 202 tests passing (100% pass rate)**
 
-**Overall Assessment: Backend READY, E2E tests need migration to production frontend**
+The Framer application is fully tested across:
+- **Backend**: All services, models, API endpoints, and AI agents
+- **Frontend**: Authentication flow, navigation, frame management, AI features
+
+The test suite provides comprehensive coverage for:
+- User authentication (login, register, sign out)
+- Frame lifecycle (create, read, update, delete, archive)
+- AI assistance (evaluation, generation, refinement)
+- UI interactions (navigation, modals, forms, checklists)
+
+**Overall Assessment: Production Ready**
