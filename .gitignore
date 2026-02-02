@@ -1,4 +1,35 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Node.js
+node_modules/
+.next/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude
+.claude/
+.playwright-mcp/
+**/CLAUDE.md
+
+# Test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env*.local
