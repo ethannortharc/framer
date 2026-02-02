@@ -55,13 +55,13 @@ test.describe('Authentication', () => {
     // Should be in login mode by default
     await expect(page.locator('h2:has-text("Sign In")')).toBeVisible();
 
-    // Switch to register mode
-    await page.click('text=Sign up');
+    // Switch to register mode - use role=dialog to scope within modal
+    await page.locator('role=dialog >> text=Sign up').click();
     await expect(page.locator('h2:has-text("Create Account")')).toBeVisible();
     await expect(page.locator('input[placeholder*="name"]')).toBeVisible();
 
-    // Switch back to login mode
-    await page.click('text=Sign in');
+    // Switch back to login mode - use role=dialog to scope within modal
+    await page.locator('role=dialog >> text=Sign in').click();
     await expect(page.locator('h2:has-text("Sign In")')).toBeVisible();
   });
 

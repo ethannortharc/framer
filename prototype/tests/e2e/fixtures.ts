@@ -22,7 +22,7 @@ export const test = base.extend<{
       };
 
       await page.click(`text=${typeLabels[type]}`);
-      await page.click('button:has-text("Start Manually")');
+      await page.click('text=Manual Input');
 
       // Wait for frame detail to load
       await expect(page.locator('text=Problem Statement')).toBeVisible();

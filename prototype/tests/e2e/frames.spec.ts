@@ -18,10 +18,10 @@ test.describe('Frame Management', () => {
     await expect(page.locator('role=dialog')).toBeVisible();
     await expect(page.locator('text=Create New Frame')).toBeVisible();
 
-    // Check frame type options
-    await expect(page.locator('text=Bug Fix')).toBeVisible();
-    await expect(page.locator('text=Feature')).toBeVisible();
-    await expect(page.locator('text=Exploration')).toBeVisible();
+    // Check frame type options - use more specific selectors to avoid duplicates
+    await expect(page.locator('role=dialog >> text=Bug Fix')).toBeVisible();
+    await expect(page.locator('role=dialog >> text=Feature Development')).toBeVisible();
+    await expect(page.locator('role=dialog >> .font-medium:has-text("Exploration")')).toBeVisible();
   });
 
   test('should create a new frame', async ({ page }) => {
@@ -31,8 +31,8 @@ test.describe('Frame Management', () => {
     // Select Bug Fix type
     await page.click('text=Bug Fix');
 
-    // Click Start Manually
-    await page.click('button:has-text("Start Manually")');
+    // Click Manual Input option
+    await page.click('text=Manual Input');
 
     // Check that we're in frame detail view
     await expect(page.locator('text=Problem Statement')).toBeVisible();
@@ -45,7 +45,7 @@ test.describe('Frame Management', () => {
     // Create a new frame first
     await page.click('button:has-text("New Frame")');
     await page.click('text=Bug Fix');
-    await page.click('button:has-text("Start Manually")');
+    await page.click('text=Manual Input');
 
     // Find and fill the problem statement textarea
     const problemTextarea = page.locator('textarea').first();
@@ -55,14 +55,17 @@ test.describe('Frame Management', () => {
     await expect(problemTextarea).toHaveValue('This is a test problem statement for E2E testing.');
   });
 
-  test('should navigate back to dashboard', async ({ page }) => {
+  test('should navigate back to dashboard using breadcrumb', async ({ page }) => {
     // Create a new frame
     await page.click('button:has-text("New Frame")');
     await page.click('text=Bug Fix');
-    await page.click('button:has-text("Start Manually")');
+    await page.click('text=Manual Input');
 
-    // Click back button
-    await page.click('button:has-text("Back")');
+    // Wait for frame detail to load
+    await expect(page.locator('text=Problem Statement')).toBeVisible();
+
+    // Click Dashboard link in breadcrumb to go back
+    await page.click('text=Dashboard');
 
     // Should be back on dashboard
     await expect(page.locator('button:has-text("New Frame")')).toBeVisible();
