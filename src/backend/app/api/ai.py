@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.agents.evaluator import EvaluatorAgent
 from app.agents.generator import GeneratorAgent
 from app.agents.refiner import RefinerAgent
-from app.agents.config import AIConfig
+from app.agents.config import AIConfig, get_ai_config as get_global_ai_config
 from app.services.frame_service import FrameService, FrameNotFoundError
 from app.services.template_service import TemplateService
 
@@ -64,8 +64,7 @@ def get_template_service(request: Request) -> TemplateService:
 
 def get_ai_config(request: Request) -> AIConfig:
     """Dependency to get AI configuration."""
-    # In production, this would load from config file
-    return AIConfig()
+    return get_global_ai_config()
 
 
 def create_ai_router() -> APIRouter:
