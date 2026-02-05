@@ -202,6 +202,8 @@ class TestFrameServiceUpdate:
         (frame_dir / "meta.yaml").write_text(sample_meta_yaml)
 
         service = FrameService(data_path=temp_data_dir_with_structure)
+        # Must assign reviewer before transitioning to IN_REVIEW
+        service.update_frame_meta(frame_id, reviewer="reviewer1")
         frame = service.update_frame_status(frame_id, FrameStatus.IN_REVIEW)
 
         assert frame.status == FrameStatus.IN_REVIEW

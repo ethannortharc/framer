@@ -38,6 +38,8 @@ class FrameMeta(BaseModel):
     type: FrameType
     status: FrameStatus
     owner: str
+    reviewer: Optional[str] = None
+    approver: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -63,9 +65,13 @@ class FrameMeta(BaseModel):
             "type": self.type.value,
             "status": self.status.value,
             "owner": self.owner,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
         }
+        if self.reviewer:
+            data["reviewer"] = self.reviewer
+        if self.approver:
+            data["approver"] = self.approver
+        data["created_at"] = self.created_at.isoformat()
+        data["updated_at"] = self.updated_at.isoformat()
         if self.ai_score is not None:
             data["ai"] = {
                 "score": self.ai_score,
@@ -94,6 +100,8 @@ class FrameMeta(BaseModel):
             type=FrameType(data["type"]),
             status=FrameStatus(data["status"]),
             owner=data["owner"],
+            reviewer=data.get("reviewer"),
+            approver=data.get("approver"),
             created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
                 if isinstance(data["created_at"], str) else data["created_at"],
             updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))

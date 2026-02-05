@@ -37,6 +37,8 @@ class IndexService:
                 type TEXT NOT NULL,
                 status TEXT NOT NULL,
                 owner TEXT NOT NULL,
+                reviewer TEXT,
+                approver TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 ai_score INTEGER,
@@ -54,6 +56,12 @@ class IndexService:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_frames_type ON frames(type)
         """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_frames_reviewer ON frames(reviewer)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_frames_approver ON frames(approver)
+        """)
 
         conn.commit()
         conn.close()
@@ -65,13 +73,16 @@ class IndexService:
 
         cursor.execute("""
             INSERT OR REPLACE INTO frames (
-                id, type, status, owner, created_at, updated_at, ai_score, ai_evaluated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                id, type, status, owner, reviewer, approver,
+                created_at, updated_at, ai_score, ai_evaluated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             meta.id,
             meta.type.value,
             meta.status.value,
             meta.owner,
+            meta.reviewer,
+            meta.approver,
             meta.created_at.isoformat(),
             meta.updated_at.isoformat(),
             meta.ai_score,
@@ -164,14 +175,16 @@ class IndexService:
                             meta = FrameMeta.from_yaml(meta_file.read_text())
                             cursor.execute("""
                                 INSERT INTO frames (
-                                    id, type, status, owner, created_at, updated_at,
-                                    ai_score, ai_evaluated_at
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                    id, type, status, owner, reviewer, approver,
+                                    created_at, updated_at, ai_score, ai_evaluated_at
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
                                 meta.id,
                                 meta.type.value,
                                 meta.status.value,
                                 meta.owner,
+                                meta.reviewer,
+                                meta.approver,
                                 meta.created_at.isoformat(),
                                 meta.updated_at.isoformat(),
                                 meta.ai_score,

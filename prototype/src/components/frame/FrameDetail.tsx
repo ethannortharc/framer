@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Frame, FrameSection as FrameSectionType, FrameType } from '@/types';
 import { useFrameStore } from '@/store';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
@@ -18,6 +18,7 @@ import {
 import { FrameSection, EditableList, EditableText } from './FrameSection';
 import { FloatingAISidebar } from '@/components/sidebar/FloatingAISidebar';
 import { formatDate, getStatusLabel, truncate } from '@/lib/utils';
+import { getAPIClient } from '@/lib/api';
 import {
   Bot,
   ChevronDown,
@@ -83,11 +84,20 @@ export function FrameDetail({
     saveFrame,
     discardUnsavedFrame,
     isFrameSaved,
+    teamUsers,
+    loadUsers,
+    useAPI,
   } = useFrameStore();
 
   const isSaved = isFrameSaved(frame.id);
 
   const owner = getUser(frame.ownerId);
+
+  useEffect(() => {
+    if (useAPI) {
+      loadUsers();
+    }
+  }, [useAPI, loadUsers]);
 
   // Read-only for feedback and archived frames
   const isReadOnly = frame.status === 'feedback' || frame.status === 'archived';
@@ -647,12 +657,99 @@ export function FrameDetail({
             </div>
           )}
 
-          {/* Owner & Date Info */}
-          <div className="flex items-center justify-between text-sm text-slate-500 px-2">
-            <span>
-              Owner: <span className="font-medium text-slate-700">{owner?.name}</span>
-            </span>
-            <span>Last updated: {formatDate(frame.updatedAt)}</span>
+          {/* Assignment & Date Info */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+              Assignments
+            </h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              {/* Owner */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Owner
+                </label>
+                <p className="text-sm text-slate-700 font-medium">
+                  {owner?.name || 'Unknown'}
+                </p>
+              </div>
+
+              {/* Reviewer */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Reviewer
+                </label>
+                {isReadOnly ? (
+                  <p className="text-sm text-slate-700">
+                    {teamUsers.find(u => u.id === frame.reviewerId)?.name || 'Not assigned'}
+                  </p>
+                ) : (
+                  <Select
+                    value={frame.reviewerId || ''}
+                    onValueChange={(v) => {
+                      handleUpdateFrame({ reviewerId: v || undefined });
+                      if (useAPI) {
+                        const api = getAPIClient();
+                        api.updateFrameMeta(frame.id, { reviewer: v });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue placeholder="Select reviewer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamUsers
+                        .filter(u => u.id !== frame.ownerId)
+                        .map(u => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name}
+                          </SelectItem>
+                        ))
+                      }
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {/* Approver */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                  Approver
+                </label>
+                {isReadOnly ? (
+                  <p className="text-sm text-slate-700">
+                    {teamUsers.find(u => u.id === frame.approverId)?.name || 'Not assigned'}
+                  </p>
+                ) : (
+                  <Select
+                    value={frame.approverId || ''}
+                    onValueChange={(v) => {
+                      handleUpdateFrame({ approverId: v || undefined });
+                      if (useAPI) {
+                        const api = getAPIClient();
+                        api.updateFrameMeta(frame.id, { approver: v });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue placeholder="Select approver..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamUsers
+                        .filter(u => u.id !== frame.ownerId)
+                        .map(u => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name}
+                          </SelectItem>
+                        ))
+                      }
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+            <div className="text-xs text-slate-400">
+              Last updated: {formatDate(frame.updatedAt)}
+            </div>
           </div>
 
           {/* Spacer for fixed footer */}

@@ -10,10 +10,12 @@ import { truncate, getScoreColor } from '@/lib/utils';
 interface FrameCardProps {
   frame: Frame;
   owner: User | undefined;
+  reviewer: User | undefined;
+  approver: User | undefined;
   onClick: () => void;
 }
 
-export function FrameCard({ frame, owner, onClick }: FrameCardProps) {
+export function FrameCard({ frame, owner, reviewer, approver, onClick }: FrameCardProps) {
   const typeLabel = frame.type.charAt(0).toUpperCase() + frame.type.slice(1);
 
   return (
@@ -32,20 +34,34 @@ export function FrameCard({ frame, owner, onClick }: FrameCardProps) {
           {truncate(frame.problemStatement || 'Untitled Frame', 80)}
         </h3>
 
-        {/* Footer: Owner & Score */}
+        {/* Footer: Owner, Reviewer, Approver & Score */}
         <div className="flex items-center justify-between pt-1">
-          {/* Owner */}
-          <div className="flex items-center gap-2">
-            <Avatar
-              initials={owner?.avatar || owner?.name.slice(0, 2).toUpperCase() || '??'}
-              size="sm"
-            />
-            <span className="text-xs text-slate-500">
-              {owner?.name || 'Unknown'}
-            </span>
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5" title={`Owner: ${owner?.name || 'Unknown'}`}>
+              <Avatar
+                initials={owner?.avatar || owner?.name.slice(0, 2).toUpperCase() || '??'}
+                size="sm"
+              />
+            </div>
+            {reviewer && (
+              <div className="flex items-center gap-0.5" title={`Reviewer: ${reviewer.name}`}>
+                <span className="text-[10px] text-slate-400">R:</span>
+                <Avatar
+                  initials={reviewer.avatar || reviewer.name.slice(0, 2).toUpperCase()}
+                  size="sm"
+                />
+              </div>
+            )}
+            {approver && (
+              <div className="flex items-center gap-0.5" title={`Approver: ${approver.name}`}>
+                <span className="text-[10px] text-slate-400">A:</span>
+                <Avatar
+                  initials={approver.avatar || approver.name.slice(0, 2).toUpperCase()}
+                  size="sm"
+                />
+              </div>
+            )}
           </div>
-
-          {/* Score */}
           <ScoreIndicator score={frame.aiScore} />
         </div>
       </div>

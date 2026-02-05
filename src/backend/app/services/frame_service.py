@@ -134,6 +134,32 @@ class FrameService:
 
         return Frame(meta=meta, content=content)
 
+    def update_frame_meta(
+        self,
+        frame_id: str,
+        reviewer: Optional[str] = None,
+        approver: Optional[str] = None,
+    ) -> Frame:
+        """Update frame metadata (reviewer, approver)."""
+        frame_dir = self._get_frame_dir(frame_id)
+        if not frame_dir.exists():
+            raise FrameNotFoundError(f"Frame not found: {frame_id}")
+
+        meta_file = frame_dir / "meta.yaml"
+        meta = FrameMeta.from_yaml(meta_file.read_text())
+
+        if reviewer is not None:
+            meta.reviewer = reviewer
+        if approver is not None:
+            meta.approver = approver
+
+        meta.updated_at = datetime.now(timezone.utc)
+        meta_file.write_text(meta.to_yaml())
+
+        frame_file = frame_dir / "frame.md"
+        content = FrameContent.from_markdown(frame_file.read_text())
+        return Frame(meta=meta, content=content)
+
     def update_frame_status(self, frame_id: str, status: FrameStatus) -> Frame:
         """Update frame status."""
         frame_dir = self._get_frame_dir(frame_id)
@@ -144,6 +170,12 @@ class FrameService:
         # Read current meta
         meta_file = frame_dir / "meta.yaml"
         meta = FrameMeta.from_yaml(meta_file.read_text())
+
+        # Enforce reviewer/approver requirements
+        if status == FrameStatus.IN_REVIEW and not meta.reviewer:
+            raise ValueError("A reviewer must be assigned before submitting for review")
+        if status == FrameStatus.READY and not meta.approver:
+            raise ValueError("An approver must be assigned before marking as ready")
 
         # Update status and timestamp
         meta.status = status

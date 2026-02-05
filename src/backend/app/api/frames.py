@@ -29,6 +29,12 @@ class UpdateStatusRequest(BaseModel):
     status: FrameStatus
 
 
+class UpdateMetaRequest(BaseModel):
+    """Request body for updating frame metadata."""
+    reviewer: Optional[str] = None
+    approver: Optional[str] = None
+
+
 class CreateCommentRequest(BaseModel):
     """Request body for creating a comment."""
     section: str
@@ -62,6 +68,8 @@ class FrameResponse(BaseModel):
                 "created_at": frame.meta.created_at.isoformat(),
                 "updated_at": frame.meta.updated_at.isoformat(),
                 "ai_score": frame.meta.ai_score,
+                "reviewer": frame.meta.reviewer,
+                "approver": frame.meta.approver,
             }
         )
 
@@ -72,6 +80,8 @@ class FrameListItem(BaseModel):
     type: str
     status: str
     owner: str
+    reviewer: Optional[str] = None
+    approver: Optional[str] = None
     updated_at: str
 
 
@@ -157,6 +167,8 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
                 type=f.type.value,
                 status=f.status.value,
                 owner=f.owner,
+                reviewer=f.meta.reviewer,
+                approver=f.meta.approver,
                 updated_at=f.meta.updated_at.isoformat(),
             )
             for f in frames
@@ -188,6 +200,31 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
         """Update a frame's status."""
         try:
             frame = frame_service.update_frame_status(frame_id, request.status)
+            return FrameResponse.from_frame(frame)
+        except FrameNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Frame not found: {frame_id}",
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
+    @router.patch("/{frame_id}/meta", dependencies=get_auth_dependencies())
+    def update_meta(
+        frame_id: str,
+        request: UpdateMetaRequest,
+        frame_service: FrameService = Depends(get_frame_service),
+    ) -> FrameResponse:
+        """Update frame metadata (reviewer, approver)."""
+        try:
+            frame = frame_service.update_frame_meta(
+                frame_id,
+                reviewer=request.reviewer,
+                approver=request.approver,
+            )
             return FrameResponse.from_frame(frame)
         except FrameNotFoundError:
             raise HTTPException(

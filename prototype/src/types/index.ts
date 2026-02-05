@@ -86,6 +86,8 @@ export interface Frame {
   validationThinking: ValidationThinking;
   confirmation: Confirmation;
   ownerId: string;
+  reviewerId?: string;
+  approverId?: string;
   createdAt: Date;
   updatedAt: Date;
   aiScore?: number;
@@ -95,6 +97,19 @@ export interface Frame {
   comments?: ReviewComment[];
   reviewDecision?: ReviewDecision;
   feedback?: FrameFeedback;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  team: string;
+  user: string;
+  role?: string;
 }
 
 // AI Configuration
@@ -119,4 +134,4 @@ export interface ChatMessage {
 export type FrameSection = 'header' | 'user' | 'engineering' | 'validation';
 
 // Navigation spaces
-export type AppSpace = 'working' | 'templates' | 'archive';
+export type AppSpace = 'working' | 'templates' | 'archive' | 'users' | 'admin';

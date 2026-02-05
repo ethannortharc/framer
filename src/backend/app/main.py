@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.frames import create_frames_router
 from app.api.templates import create_templates_router
 from app.api.ai import create_ai_router
+from app.api.users import create_users_router
 from app.services.frame_service import FrameService
 from app.services.template_service import TemplateService
 from app.services.git_service import GitService
@@ -82,6 +83,11 @@ def create_app(
         create_ai_router(),
         prefix="/api",
         tags=["ai"],
+    )
+    app.include_router(
+        create_users_router(),
+        prefix="/api",
+        tags=["users"],
     )
 
     return app

@@ -31,6 +31,10 @@ interface FrameStore {
   // API Mode
   useAPI: boolean;
 
+  // Users
+  teamUsers: User[];
+  loadUsers: () => Promise<void>;
+
   // Actions
   setSelectedFrame: (id: string | null) => void;
   setFocusedSection: (section: FrameSection | null) => void;
@@ -94,12 +98,38 @@ export const useFrameStore = create<FrameStore>()(
       // API Mode
       useAPI: USE_API,
 
+      teamUsers: [],
+
       // Actions
       setSelectedFrame: (id) => set({ selectedFrameId: id }),
       setFocusedSection: (section) => set({ focusedSection: section }),
-      setCurrentSpace: (space) => set({ currentSpace: space, selectedFrameId: null }),
+      setCurrentSpace: (space) => {
+        set({ currentSpace: space, selectedFrameId: null });
+        if (space === 'users') {
+          get().loadUsers();
+        }
+      },
       setAIConfig: (config) => set({ aiConfig: config }),
       setError: (error) => set({ error }),
+      loadUsers: async () => {
+        if (!get().useAPI) return;
+        try {
+          const api = getAPIClient();
+          const users = await api.listUsers();
+          set({
+            teamUsers: users.map((u) => ({
+              id: u.id,
+              name: u.name || u.email.split('@')[0],
+              email: u.email,
+              role: (u.role as User['role']) || 'engineer',
+              avatar: u.avatar || undefined,
+            })),
+          });
+        } catch (err) {
+          console.warn('Failed to load users:', err);
+        }
+      },
+
       toggleAPIMode: () => {
         const newMode = !get().useAPI;
         set({
@@ -574,7 +604,7 @@ export const useFrameStore = create<FrameStore>()(
 
       // Get helpers
       getFrame: (id) => get().frames.find((f) => f.id === id),
-      getUser: (id) => get().users.find((u) => u.id === id),
+      getUser: (id) => get().users.find((u) => u.id === id) || get().teamUsers.find((u) => u.id === id),
       getFramesByStatus: (status) => get().frames.filter((f) => f.status === status),
       getWorkingFrames: () => get().frames.filter((f) => f.status !== 'archived'),
       getArchivedFrames: () => get().frames.filter((f) => f.status === 'archived'),

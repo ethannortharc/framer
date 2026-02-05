@@ -110,6 +110,8 @@ function KanbanColumn({ column, frames, onFrameClick }: KanbanColumnProps) {
             key={frame.id}
             frame={frame}
             owner={getUser(frame.ownerId)}
+            reviewer={frame.reviewerId ? getUser(frame.reviewerId) : undefined}
+            approver={frame.approverId ? getUser(frame.approverId) : undefined}
             onClick={() => onFrameClick(frame.id)}
           />
         ))}

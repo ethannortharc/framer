@@ -161,6 +161,12 @@ class TestFramesAPIUpdate:
         """PATCH /api/frames/:id/status should change status."""
         client, frame_id = client_with_frame
 
+        # Must assign reviewer before transitioning to in_review
+        meta_response = client.patch(f"/api/frames/{frame_id}/meta", json={
+            "reviewer": "reviewer1"
+        })
+        assert meta_response.status_code == 200
+
         response = client.patch(f"/api/frames/{frame_id}/status", json={
             "status": "in_review"
         })

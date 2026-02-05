@@ -73,6 +73,8 @@ export function transformFrameResponse(response: FrameResponse): Frame {
       knowsValidation: false,
     },
     ownerId: response.owner,
+    reviewerId: response.meta.reviewer ?? undefined,
+    approverId: response.meta.approver ?? undefined,
     createdAt: new Date(response.meta.created_at),
     updatedAt: new Date(response.meta.updated_at),
     aiScore: response.meta.ai_score ?? undefined,

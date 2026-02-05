@@ -46,6 +46,8 @@ export interface FrameResponse {
     created_at: string;
     updated_at: string;
     ai_score: number | null;
+    reviewer: string | null;
+    approver: string | null;
   };
 }
 
@@ -54,6 +56,8 @@ export interface FrameListItem {
   type: string;
   status: string;
   owner: string;
+  reviewer: string | null;
+  approver: string | null;
   updated_at: string;
 }
 
@@ -338,6 +342,45 @@ export class FramerAPIClient {
   }): Promise<AIChatResponse> {
     return this.request<AIChatResponse>('/api/ai/chat', {
       method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==================== User/Team Endpoints ====================
+
+  async listUsers(): Promise<Array<{
+    id: string;
+    email: string;
+    name: string | null;
+    role: string | null;
+    avatar: string | null;
+  }>> {
+    return this.request('/api/users');
+  }
+
+  async listTeams(): Promise<Array<{
+    id: string;
+    name: string;
+    description: string | null;
+  }>> {
+    return this.request('/api/teams');
+  }
+
+  async listTeamMembers(teamId: string): Promise<Array<{
+    id: string;
+    team: string;
+    user: string;
+    role: string | null;
+  }>> {
+    return this.request(`/api/teams/${teamId}/members`);
+  }
+
+  async updateFrameMeta(id: string, data: {
+    reviewer?: string;
+    approver?: string;
+  }): Promise<FrameResponse> {
+    return this.request<FrameResponse>(`/api/frames/${id}/meta`, {
+      method: 'PATCH',
       body: data,
     });
   }

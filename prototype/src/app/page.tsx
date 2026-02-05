@@ -17,6 +17,8 @@ import { QuestionnaireDialog } from '@/components/modals/QuestionnaireDialog';
 import { FrameQuestionnaireModal } from '@/components/modals/FrameQuestionnaireModal';
 import { FeedbackDialog } from '@/components/modals/FeedbackDialog';
 import { AuthModal } from '@/components/modals/AuthModal';
+import { UsersListView } from '@/components/users/UsersListView';
+import { AdminPage } from '@/components/admin/AdminPage';
 
 export default function Home() {
   const {
@@ -256,6 +258,10 @@ export default function Home() {
         return <TemplateSpace />;
       case 'archive':
         return <ArchiveSpace />;
+      case 'users':
+        return <UsersListView />;
+      case 'admin':
+        return <AdminPage />;
       default:
         return null;
     }
