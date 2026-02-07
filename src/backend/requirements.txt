@@ -16,6 +16,13 @@ pyyaml>=6.0.1
 # Git operations
 gitpython>=3.1.40
 
+# AI providers
+anthropic>=0.40.0
+openai>=1.10.0
+
+# Vector search
+chromadb>=0.4.0
+
 # Testing (dev only)
 pytest>=8.0.0
 pytest-asyncio>=0.23.0

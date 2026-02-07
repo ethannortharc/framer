@@ -119,4 +119,72 @@ export interface ChatMessage {
 export type FrameSection = 'header' | 'user' | 'engineering' | 'validation';
 
 // Navigation spaces
-export type AppSpace = 'working' | 'templates' | 'archive';
+export type AppSpace = 'working' | 'templates' | 'archive' | 'knowledge';
+
+// Conversation types
+export type ConversationStatus = 'active' | 'synthesized' | 'abandoned';
+
+export interface ConversationMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ConversationState {
+  frameType: string | null;
+  sectionsCovered: {
+    problemStatement: number;
+    userPerspective: number;
+    engineeringFraming: number;
+    validationThinking: number;
+  };
+  gaps: string[];
+  readyToSynthesize: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  owner: string;
+  status: ConversationStatus;
+  frameId: string | null;
+  messages: ConversationMessage[];
+  state: ConversationState;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationListItem {
+  id: string;
+  owner: string;
+  status: ConversationStatus;
+  frameId: string | null;
+  messageCount: number;
+  updatedAt: string;
+}
+
+// Knowledge types
+export type KnowledgeCategory = 'pattern' | 'decision' | 'prediction' | 'context' | 'lesson';
+export type KnowledgeSource = 'manual' | 'feedback' | 'conversation' | 'import';
+
+export interface KnowledgeEntry {
+  id: string;
+  title: string;
+  content: string;
+  category: KnowledgeCategory;
+  source: KnowledgeSource;
+  sourceId?: string;
+  teamId?: string;
+  author: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeSearchResult {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  distance?: number;
+}

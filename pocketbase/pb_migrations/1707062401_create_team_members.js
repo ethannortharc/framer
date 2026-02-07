@@ -8,6 +8,8 @@ migrate((app) => {
   const collection = new Collection({
     type: "base",
     name: "team_members",
+    listRule: "",
+    viewRule: "",
     fields: [
       {
         name: "team",

@@ -134,4 +134,4 @@ export interface ChatMessage {
 export type FrameSection = 'header' | 'user' | 'engineering' | 'validation';
 
 // Navigation spaces
-export type AppSpace = 'working' | 'templates' | 'archive' | 'users' | 'admin';
+export type AppSpace = 'working' | 'templates' | 'archive' | 'users';

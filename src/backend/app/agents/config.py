@@ -21,6 +21,8 @@ class AIConfig(BaseModel):
     endpoint: Optional[str] = Field(default=None, description="Custom API endpoint")
     temperature: float = Field(default=0.7, ge=0, le=2)
     max_tokens: int = Field(default=4096, ge=1)
+    timeout: int = Field(default=300, ge=1, description="Request timeout in seconds")
+    ssl_verify: bool = Field(default=True, description="SSL certificate verification")
 
     @classmethod
     def from_yaml_file(cls, path: str) -> "AIConfig":
@@ -42,20 +44,96 @@ class AIConfig(BaseModel):
         Load config from environment variables and config file.
 
         Environment variables take precedence over config file.
+        Empty env vars are treated as unset (config file value used).
         """
         # Try to load from config file first
         config_path = os.getenv("AI_CONFIG_PATH", "/config/ai.yaml")
         base_config = cls.from_yaml_file(config_path)
 
-        # Override with environment variables
+        def env_or(key: str, default):
+            """Get env var, treating empty strings as unset."""
+            val = os.getenv(key, "")
+            return val if val else default
+
+        # Override with environment variables (non-empty only)
+        ssl_env = os.getenv("AI_SSL_VERIFY", "")
+        ssl_verify = ssl_env.lower() in ("true", "1", "yes") if ssl_env else base_config.ssl_verify
+
         return cls(
-            provider=os.getenv("AI_PROVIDER", base_config.provider),
-            model=os.getenv("AI_MODEL", base_config.model),
-            api_key=os.getenv("AI_API_KEY", base_config.api_key),
-            endpoint=os.getenv("AI_ENDPOINT", base_config.endpoint),
-            temperature=float(os.getenv("AI_TEMPERATURE", base_config.temperature)),
-            max_tokens=int(os.getenv("AI_MAX_TOKENS", base_config.max_tokens)),
+            provider=env_or("AI_PROVIDER", base_config.provider),
+            model=env_or("AI_MODEL", base_config.model),
+            api_key=env_or("AI_API_KEY", base_config.api_key),
+            endpoint=env_or("AI_ENDPOINT", base_config.endpoint),
+            temperature=float(env_or("AI_TEMPERATURE", base_config.temperature)),
+            max_tokens=int(env_or("AI_MAX_TOKENS", base_config.max_tokens)),
+            timeout=int(env_or("AI_TIMEOUT", base_config.timeout)),
+            ssl_verify=ssl_verify,
         )
+
+    def get_http_client(self):
+        """Get an httpx.AsyncClient configured with SSL and timeout settings."""
+        import httpx
+
+        return httpx.AsyncClient(
+            verify=self.ssl_verify,
+            timeout=httpx.Timeout(self.timeout, connect=30.0),
+        )
+
+    def create_openai_client(self):
+        """Create an AsyncOpenAI client with endpoint/SSL/timeout settings."""
+        import openai
+
+        kwargs: dict = {"api_key": self.api_key}
+        if self.endpoint:
+            kwargs["base_url"] = self.endpoint
+        if not self.ssl_verify or self.timeout != 300:
+            kwargs["http_client"] = self.get_http_client()
+        return openai.AsyncOpenAI(**kwargs)
+
+    def create_anthropic_client(self):
+        """Create an AsyncAnthropic client with endpoint/SSL/timeout settings."""
+        import anthropic
+
+        kwargs: dict = {"api_key": self.api_key}
+        if self.endpoint:
+            kwargs["base_url"] = self.endpoint
+        if not self.ssl_verify or self.timeout != 300:
+            kwargs["http_client"] = self.get_http_client()
+        return anthropic.AsyncAnthropic(**kwargs)
+
+
+def parse_json_response(text: str) -> dict:
+    """Parse JSON from AI response, stripping markdown code fences if present."""
+    import json
+    import re
+
+    if not text or not text.strip():
+        raise ValueError("Empty AI response")
+
+    stripped = text.strip()
+
+    # Strip ```json ... ``` or ``` ... ``` wrappers (greedy to handle nested code blocks)
+    match = re.match(r'^```(?:json)?\s*\n(.*)\n\s*```$', stripped, re.DOTALL)
+    if match:
+        inner = match.group(1).strip()
+        if inner:
+            stripped = inner
+
+    # If still not starting with '{', try to find JSON object in the text
+    if not stripped.startswith('{'):
+        start = stripped.find('{')
+        end = stripped.rfind('}')
+        if start != -1 and end > start:
+            stripped = stripped[start:end + 1]
+
+    if not stripped:
+        raise ValueError("No JSON content found in AI response")
+
+    # Try strict parse first, then lenient (allows control characters in strings)
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return json.loads(stripped, strict=False)
 
 
 # Singleton instance for the application

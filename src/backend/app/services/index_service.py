@@ -46,6 +46,13 @@ class IndexService:
             )
         """)
 
+        # Migrate schema: add columns that may be missing from older versions
+        for col in ["reviewer TEXT", "approver TEXT"]:
+            try:
+                cursor.execute(f"ALTER TABLE frames ADD COLUMN {col}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
         # Create indexes for common queries
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_frames_status ON frames(status)

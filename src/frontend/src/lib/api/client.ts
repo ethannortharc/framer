@@ -4,7 +4,19 @@
  * Type-safe HTTP client for the FastAPI backend.
  */
 
-import type { Frame, FrameType, FrameStatus, FrameSection } from '@/types';
+import type {
+  Frame,
+  FrameType,
+  FrameStatus,
+  FrameSection,
+  ConversationMessage,
+  ConversationState,
+  ConversationListItem,
+  KnowledgeEntry,
+  KnowledgeCategory,
+  KnowledgeSource,
+  KnowledgeSearchResult,
+} from '@/types';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
@@ -91,6 +103,89 @@ export interface AIGenerateResponse {
 export interface AIChatResponse {
   message: string;
   suggestion?: string;
+}
+
+// Conversation API response types
+export interface ConversationResponse {
+  id: string;
+  owner: string;
+  status: string;
+  frame_id: string | null;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  state: {
+    frame_type: string | null;
+    sections_covered: Record<string, number>;
+    gaps: string[];
+    ready_to_synthesize: boolean;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationListItemResponse {
+  id: string;
+  owner: string;
+  status: string;
+  frame_id: string | null;
+  message_count: number;
+  updated_at: string;
+}
+
+export interface SendMessageResponse {
+  message: {
+    id: string;
+    role: string;
+    content: string;
+    timestamp: string;
+    metadata?: Record<string, unknown>;
+  };
+  ai_response: {
+    id: string;
+    role: string;
+    content: string;
+    timestamp: string;
+    metadata?: Record<string, unknown>;
+  };
+  state: {
+    frame_type: string | null;
+    sections_covered: Record<string, number>;
+    gaps: string[];
+    ready_to_synthesize: boolean;
+  };
+  relevant_knowledge: Array<Record<string, unknown>>;
+}
+
+export interface SynthesizeResponse {
+  frame_id: string;
+  content: Record<string, string>;
+}
+
+// Knowledge API response types
+export interface KnowledgeEntryResponse {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  source: string;
+  source_id?: string;
+  team_id?: string;
+  author: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeSearchResultResponse {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  distance?: number;
 }
 
 /**
@@ -337,6 +432,178 @@ export class FramerAPIClient {
     };
   }): Promise<AIChatResponse> {
     return this.request<AIChatResponse>('/api/ai/chat', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==================== Conversation Endpoints ====================
+
+  /**
+   * Start a new conversation
+   */
+  async startConversation(owner: string): Promise<ConversationResponse> {
+    return this.request<ConversationResponse>('/api/conversations', {
+      method: 'POST',
+      body: { owner },
+    });
+  }
+
+  /**
+   * List conversations
+   */
+  async listConversations(filters?: {
+    owner?: string;
+    status?: string;
+  }): Promise<ConversationListItemResponse[]> {
+    const params = new URLSearchParams();
+    if (filters?.owner) params.append('owner', filters.owner);
+    if (filters?.status) params.append('conv_status', filters.status);
+    const query = params.toString();
+    return this.request<ConversationListItemResponse[]>(
+      `/api/conversations${query ? `?${query}` : ''}`
+    );
+  }
+
+  /**
+   * Get a conversation by ID
+   */
+  async getConversation(id: string): Promise<ConversationResponse> {
+    return this.request<ConversationResponse>(`/api/conversations/${id}`);
+  }
+
+  /**
+   * Send a message in a conversation
+   */
+  async sendConversationMessage(
+    convId: string,
+    content: string
+  ): Promise<SendMessageResponse> {
+    return this.request<SendMessageResponse>(
+      `/api/conversations/${convId}/message`,
+      {
+        method: 'POST',
+        body: { content },
+      }
+    );
+  }
+
+  /**
+   * Synthesize a frame from a conversation
+   */
+  async synthesizeFrame(convId: string): Promise<SynthesizeResponse> {
+    return this.request<SynthesizeResponse>(
+      `/api/conversations/${convId}/synthesize`,
+      { method: 'POST' }
+    );
+  }
+
+  /**
+   * Delete a conversation
+   */
+  async deleteConversation(id: string): Promise<void> {
+    return this.request<void>(`/api/conversations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==================== Knowledge Endpoints ====================
+
+  /**
+   * Create a knowledge entry
+   */
+  async createKnowledgeEntry(data: {
+    title: string;
+    content: string;
+    category: string;
+    source?: string;
+    author: string;
+    tags?: string[];
+  }): Promise<KnowledgeEntryResponse> {
+    return this.request<KnowledgeEntryResponse>('/api/knowledge', {
+      method: 'POST',
+      body: { source: 'manual', tags: [], ...data },
+    });
+  }
+
+  /**
+   * List knowledge entries
+   */
+  async listKnowledgeEntries(filters?: {
+    category?: string;
+    team_id?: string;
+    tags?: string;
+  }): Promise<KnowledgeEntryResponse[]> {
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.team_id) params.append('team_id', filters.team_id);
+    if (filters?.tags) params.append('tags', filters.tags);
+    const query = params.toString();
+    return this.request<KnowledgeEntryResponse[]>(
+      `/api/knowledge${query ? `?${query}` : ''}`
+    );
+  }
+
+  /**
+   * Get a knowledge entry by ID
+   */
+  async getKnowledgeEntry(id: string): Promise<KnowledgeEntryResponse> {
+    return this.request<KnowledgeEntryResponse>(`/api/knowledge/${id}`);
+  }
+
+  /**
+   * Update a knowledge entry
+   */
+  async updateKnowledgeEntry(
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      category?: string;
+      tags?: string[];
+    }
+  ): Promise<KnowledgeEntryResponse> {
+    return this.request<KnowledgeEntryResponse>(`/api/knowledge/${id}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  /**
+   * Delete a knowledge entry
+   */
+  async deleteKnowledgeEntry(id: string): Promise<void> {
+    return this.request<void>(`/api/knowledge/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Semantic search for knowledge
+   */
+  async searchKnowledge(data: {
+    query: string;
+    limit?: number;
+    category?: string;
+  }): Promise<KnowledgeSearchResultResponse[]> {
+    return this.request<KnowledgeSearchResultResponse[]>(
+      '/api/knowledge/search',
+      {
+        method: 'POST',
+        body: data,
+      }
+    );
+  }
+
+  /**
+   * Distill knowledge from feedback or conversation
+   */
+  async distillKnowledge(data: {
+    frame_id?: string;
+    conversation_id?: string;
+    feedback?: string;
+  }): Promise<KnowledgeEntryResponse[]> {
+    return this.request<KnowledgeEntryResponse[]>('/api/knowledge/distill', {
       method: 'POST',
       body: data,
     });

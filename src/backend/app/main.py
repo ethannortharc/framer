@@ -12,10 +12,15 @@ from app.api.frames import create_frames_router
 from app.api.templates import create_templates_router
 from app.api.ai import create_ai_router
 from app.api.users import create_users_router
+from app.api.conversations import create_conversations_router
+from app.api.knowledge import create_knowledge_router
 from app.services.frame_service import FrameService
 from app.services.template_service import TemplateService
 from app.services.git_service import GitService
 from app.services.index_service import IndexService
+from app.services.conversation_service import ConversationService
+from app.services.knowledge_service import KnowledgeService
+from app.services.vector_service import VectorService
 
 
 def create_app(
@@ -58,6 +63,9 @@ def create_app(
     template_service = TemplateService(data_path=data_path)
     git_service = GitService(data_path=data_path)
     index_service = IndexService(data_path=data_path)
+    conversation_service = ConversationService(data_path=data_path)
+    knowledge_service = KnowledgeService(data_path=data_path)
+    vector_service = VectorService(data_path=data_path)
 
     # Ensure index exists
     index_service.create_index()
@@ -67,6 +75,9 @@ def create_app(
     app.state.template_service = template_service
     app.state.git_service = git_service
     app.state.index_service = index_service
+    app.state.conversation_service = conversation_service
+    app.state.knowledge_service = knowledge_service
+    app.state.vector_service = vector_service
 
     # Include routers
     app.include_router(
@@ -89,6 +100,16 @@ def create_app(
         prefix="/api",
         tags=["users"],
     )
+    app.include_router(
+        create_conversations_router(require_auth=require_auth),
+        prefix="/api/conversations",
+        tags=["conversations"],
+    )
+    app.include_router(
+        create_knowledge_router(require_auth=require_auth),
+        prefix="/api/knowledge",
+        tags=["knowledge"],
+    )
 
     return app
 
@@ -96,4 +117,5 @@ def create_app(
 # Default app instance for uvicorn (only created when run directly)
 def get_app() -> FastAPI:
     """Get or create the default app instance."""
-    return create_app()
+    require_auth = os.getenv("REQUIRE_AUTH", "false").lower() in ("true", "1", "yes")
+    return create_app(require_auth=require_auth)

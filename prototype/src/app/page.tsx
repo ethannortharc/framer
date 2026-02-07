@@ -18,7 +18,7 @@ import { FrameQuestionnaireModal } from '@/components/modals/FrameQuestionnaireM
 import { FeedbackDialog } from '@/components/modals/FeedbackDialog';
 import { AuthModal } from '@/components/modals/AuthModal';
 import { UsersListView } from '@/components/users/UsersListView';
-import { AdminPage } from '@/components/admin/AdminPage';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function Home() {
   const {
@@ -53,7 +53,9 @@ export default function Home() {
   const [showQuestionnaireDialog, setShowQuestionnaireDialog] = useState(false);
   const [showFrameQuestionnaire, setShowFrameQuestionnaire] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  const { isAuthenticated } = useAuthContext();
+  const showAuthModal = useAPI && !isAuthenticated;
 
   // Track which section we're working on
   const [activeSection, setActiveSection] = useState<FrameSection | null>(null);
@@ -260,8 +262,6 @@ export default function Home() {
         return <ArchiveSpace />;
       case 'users':
         return <UsersListView />;
-      case 'admin':
-        return <AdminPage />;
       default:
         return null;
     }
@@ -272,7 +272,7 @@ export default function Home() {
       {/* Left Navigation */}
       <LeftNav
         onSettingsClick={() => setShowSettingsModal(true)}
-        onLoginClick={() => setShowAuthModal(true)}
+        onLoginClick={() => {}}
       />
 
       {/* Main Content */}
@@ -366,9 +366,9 @@ export default function Home() {
 
       <AuthModal
         open={showAuthModal}
-        onOpenChange={setShowAuthModal}
+        onOpenChange={() => {}}
+        required={useAPI && !isAuthenticated}
         onSuccess={() => {
-          // Reload frames after successful login
           if (useAPI) {
             loadFrames();
           }

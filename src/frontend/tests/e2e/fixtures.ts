@@ -9,28 +9,31 @@ import { test as base, expect } from '@playwright/test';
 
 // Custom test fixture with helper methods
 export const test = base.extend<{
-  createFrame: (type: 'bug' | 'feature' | 'exploration') => Promise<void>;
+  createFrame: (type: 'bug' | 'feature' | 'exploration') => Promise<string>;
 }>({
-  // Helper to create a new frame
-  createFrame: async ({ page }, use) => {
-    const createFrame = async (type: 'bug' | 'feature' | 'exploration') => {
-      // Click New Frame button
-      await page.getByRole('button', { name: 'New Frame' }).click();
+  // Helper to create a new frame via API and navigate to it
+  createFrame: async ({ page, request }, use) => {
+    const createFrame = async (type: 'bug' | 'feature' | 'exploration'): Promise<string> => {
+      const apiBase = process.env.PLAYWRIGHT_API_BASE_URL || 'http://localhost:8000';
 
-      // Wait for modal
-      await expect(page.getByRole('dialog')).toBeVisible();
+      // Create frame via API
+      const response = await request.post(`${apiBase}/api/frames`, {
+        data: {
+          type,
+          owner: 'e2e-test-user',
+        },
+      });
 
-      const typeLabels = {
-        bug: 'Bug Fix',
-        feature: 'Feature',
-        exploration: 'Exploration',
-      };
+      expect(response.ok()).toBeTruthy();
+      const frame = await response.json();
 
-      // Select frame type
-      await page.getByRole('button', { name: new RegExp(typeLabels[type], 'i') }).click();
+      // Navigate to the frame detail page with full reload
+      await page.goto(`/frame/${frame.id}`, { waitUntil: 'networkidle' });
 
-      // Wait for frame detail to load
-      await expect(page.getByRole('heading', { name: 'Problem Statement' })).toBeVisible();
+      // Wait for frame detail to load (may take time for API fetch + store hydration)
+      await expect(page.getByRole('heading', { name: 'Problem Statement' })).toBeVisible({ timeout: 15000 });
+
+      return frame.id;
     };
 
     await use(createFrame);

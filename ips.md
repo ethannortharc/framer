@@ -89,6 +89,29 @@ A Frame is:
 
 ---
 
+### 5.1 Conversation-First Framing
+
+The traditional form-filling approach to frame creation is replaced by an **AI-guided conversation**. Instead of presenting users with four empty sections to fill, the system engages users in natural dialogue.
+
+**How it works:**
+
+1. User describes their intent in plain language ("I need to fix a login timeout bug" or "We want to add export functionality")
+2. AI acts as a Framing Coach, asking probing questions to elicit the information needed for each Frame section
+3. The 4-section structure (Problem Statement, User Perspective, Engineering Framing, Validation Thinking) becomes **internal scaffolding** — the AI tracks coverage of each section internally
+4. When all sections have sufficient coverage (~60%+), the AI offers to synthesize the conversation into a structured Frame
+5. User reviews and edits the synthesized Frame before submission
+
+**Benefits:**
+
+- Lower barrier to entry — users just talk, don't fill forms
+- AI identifies gaps and inconsistencies during conversation, not after
+- Relevant knowledge from past frames and team learnings surfaces automatically
+- Frame type (bug/feature/exploration) is detected from context, not selected upfront
+
+**The conversation persists** alongside the Frame, providing traceability for why specific framing decisions were made.
+
+---
+
 ## 6. Frame Structure (MVP)
 
 ### 6.1 Frame Header
@@ -240,7 +263,33 @@ AI score is advisory only.
 
 ---
 
-### 7.3 Escalation Path (< 80 Score)
+### 7.3 AI as Central Orchestrator
+
+AI is elevated from a passive copilot to the **conversation conductor**. Rather than waiting for users to fill sections and then scoring them, the AI actively drives the framing process.
+
+**Orchestrator responsibilities:**
+
+- **Decides what to ask next** — Based on section coverage gaps, the AI determines the most productive line of questioning
+- **Identifies gaps** — Detects missing information, vague statements, and unstated assumptions in real-time
+- **Surfaces relevant knowledge** — Searches team knowledge base for patterns, past decisions, and lessons learned that apply to the current frame
+- **Synthesizes when ready** — Determines when sufficient information has been gathered and offers to generate the structured Frame
+
+**Coverage tracking:**
+
+The AI internally tracks four coverage dimensions (0.0 to 1.0):
+
+| Dimension | Tracks |
+| --- | --- |
+| Problem Statement | Clear, solution-free problem definition |
+| User Perspective | Who is affected, journey, pain points |
+| Engineering Framing | Principles, trade-offs, non-goals |
+| Validation Thinking | Success signals, falsification criteria |
+
+When all dimensions reach ~0.6 coverage, the conversation is considered ready for synthesis.
+
+---
+
+### 7.4 Escalation Path (< 80 Score)
 
 If score < threshold:
 
@@ -343,3 +392,35 @@ Framer is designed to:
 - AI-assisted, human-confirmed
 - Minimal surface area
 - Clarity over completeness
+
+---
+
+## 12.1 Knowledge & Memory System
+
+Framer implements a **closed learning loop**: lessons from past implementations feed into future framing, creating compounding team knowledge.
+
+### Memory Types
+
+| Type | Description | Example |
+| --- | --- | --- |
+| Pattern | Recurring technical or process patterns | "Database migrations in service X require a 2-phase deploy" |
+| Decision | Architectural or design decisions and their rationale | "Chose WebSockets over polling for real-time updates because..." |
+| Prediction Accuracy | How well frame assumptions matched reality | "Frame F-001 predicted 2-week effort, actual was 4 weeks" |
+| Context | Team-specific domain knowledge | "The billing service has a 5-second SLA for webhook responses" |
+| Lesson | Explicit lessons from retrospectives | "Always validate OAuth tokens server-side, not in middleware" |
+
+### Knowledge Sources
+
+1. **Post-implementation feedback** (automatic) — When frames are archived with feedback, AI distills lessons learned, assumption accuracy, and patterns into knowledge entries
+2. **Manual entries** — Team members add knowledge explicitly (domain context, architectural decisions, process notes)
+3. **Conversation distillation** — AI extracts reusable knowledge from framing conversations (e.g., recurring concerns, discovered constraints)
+
+### Knowledge Retrieval
+
+Knowledge is retrieved via **semantic search** (vector embeddings) during conversations. When a user describes a problem, the system automatically surfaces:
+
+- Similar past frames and their outcomes
+- Relevant patterns and decisions
+- Lessons learned from related work
+
+This creates a **flywheel effect**: the more frames a team creates, the better the AI becomes at guiding future framing.

@@ -50,7 +50,7 @@ export function AdminPage() {
     setLoginError(null);
     try {
       const response = await fetch(
-        `${POCKETBASE_URL}/api/admins/auth-with-password`,
+        `${POCKETBASE_URL}/api/collections/_superusers/auth-with-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

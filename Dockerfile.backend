@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source code
 COPY src/backend/app ./app
 
-# Create data directory
-RUN mkdir -p /data/frames /data/templates
+# Create data directories
+RUN mkdir -p /data/frames /data/templates /data/conversations /data/knowledge /data/vector_db
 
 # Expose port
 EXPOSE 8000

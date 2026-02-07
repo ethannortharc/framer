@@ -28,6 +28,7 @@ import {
   Play,
   CheckCircle,
   Loader2,
+  MessageSquare,
 } from 'lucide-react';
 
 // Fixed checklists for each activity type
@@ -98,6 +99,8 @@ export default function FrameDetailPage() {
   const [collapsedSections, setCollapsedSections] = useState<Set<FrameSectionType | 'checklist'>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [hasRefetched, setHasRefetched] = useState(false);
 
   // Load frames if needed and find the current frame
   useEffect(() => {
@@ -110,8 +113,32 @@ export default function FrameDetailPage() {
     const foundFrame = getFrame(frameId);
     if (foundFrame) {
       setFrame(foundFrame);
+    } else if (frames.length > 0 && !hasRefetched) {
+      // Frame not found in store - refetch once in case it was created externally
+      setHasRefetched(true);
+      loadFrames();
     }
-  }, [frameId, frames, getFrame]);
+  }, [frameId, frames, getFrame, loadFrames, hasRefetched]);
+
+  // Check if frame has a linked conversation
+  useEffect(() => {
+    async function checkConversation() {
+      try {
+        const { getAPIClient } = await import('@/lib/api');
+        const api = getAPIClient();
+        const conversations = await api.listConversations();
+        const linked = conversations.find(
+          (c) => c.frame_id === frameId
+        );
+        if (linked) {
+          setConversationId(linked.id);
+        }
+      } catch {
+        // Ignore errors - conversation link is optional
+      }
+    }
+    checkConversation();
+  }, [frameId]);
 
   if (!frame) {
     return (
@@ -626,9 +653,20 @@ export default function FrameDetailPage() {
 
           {/* Owner & Date Info */}
           <div className="flex items-center justify-between text-sm text-slate-500 px-2">
-            <span>
-              Owner: <span className="font-medium text-slate-700">{user?.name || user?.email}</span>
-            </span>
+            <div className="flex items-center gap-4">
+              <span>
+                Owner: <span className="font-medium text-slate-700">{user?.name || user?.email}</span>
+              </span>
+              {conversationId && (
+                <button
+                  onClick={() => router.push(`/new?conversation=${conversationId}`)}
+                  className="flex items-center gap-1.5 text-violet-600 hover:text-violet-700 transition-colors"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span className="text-xs font-medium">View Conversation</span>
+                </button>
+              )}
+            </div>
             <span>Last updated: {formatDate(frame.updatedAt)}</span>
           </div>
 

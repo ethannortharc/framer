@@ -1,0 +1,127 @@
+'use client';
+
+import React from 'react';
+import { ConversationState } from '@/types';
+import { cn } from '@/lib/utils';
+
+interface CoveragePanelProps {
+  state: ConversationState;
+}
+
+const sections = [
+  {
+    key: 'problemStatement' as const,
+    label: 'Problem Statement',
+    description: 'Clear, solution-free problem definition',
+  },
+  {
+    key: 'userPerspective' as const,
+    label: 'User Perspective',
+    description: 'Who is affected, journey, pain points',
+  },
+  {
+    key: 'engineeringFraming' as const,
+    label: 'Engineering Framing',
+    description: 'Principles, trade-offs, non-goals',
+  },
+  {
+    key: 'validationThinking' as const,
+    label: 'Validation Thinking',
+    description: 'Success signals, falsification criteria',
+  },
+];
+
+export function CoveragePanel({ state }: CoveragePanelProps) {
+  const overallCoverage =
+    Object.values(state.sectionsCovered).reduce((sum, v) => sum + v, 0) / 4;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Coverage
+          </h3>
+          <span
+            className={cn(
+              'text-xs font-medium px-2 py-0.5 rounded-full',
+              overallCoverage >= 0.6
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-slate-100 text-slate-600'
+            )}
+          >
+            {Math.round(overallCoverage * 100)}%
+          </span>
+        </div>
+        {/* Overall progress */}
+        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className={cn(
+              'h-full rounded-full transition-all duration-500',
+              overallCoverage >= 0.6 ? 'bg-emerald-500' : 'bg-violet-500'
+            )}
+            style={{ width: `${Math.round(overallCoverage * 100)}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {sections.map((section) => {
+          const value = state.sectionsCovered[section.key];
+          const pct = Math.round(value * 100);
+
+          return (
+            <div key={section.key}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-slate-700">
+                  {section.label}
+                </span>
+                <span className="text-xs text-slate-500">{pct}%</span>
+              </div>
+              <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all duration-500',
+                    value >= 0.6
+                      ? 'bg-emerald-400'
+                      : value > 0
+                        ? 'bg-violet-400'
+                        : 'bg-slate-200'
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {section.description}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {state.gaps.length > 0 && (
+        <div>
+          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            Gaps
+          </h4>
+          <ul className="space-y-1">
+            {state.gaps.map((gap, i) => (
+              <li key={i} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                {gap}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {state.frameType && (
+        <div className="text-xs text-slate-500">
+          Detected type:{' '}
+          <span className="font-medium text-slate-700 capitalize">
+            {state.frameType}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

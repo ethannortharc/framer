@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.agents.config import AIConfig
+from app.agents.config import AIConfig, parse_json_response
 
 
 class EvaluationResult(BaseModel):
@@ -84,9 +84,7 @@ class EvaluatorAgent:
     async def _call_openai(self, prompt: str) -> dict[str, Any]:
         """Call OpenAI API."""
         try:
-            import openai
-
-            client = openai.AsyncOpenAI(api_key=self.config.api_key)
+            client = self.config.create_openai_client()
 
             response = await client.chat.completions.create(
                 model=self.config.model,
@@ -103,7 +101,7 @@ class EvaluatorAgent:
             )
 
             content = response.choices[0].message.content
-            return json.loads(content)
+            return parse_json_response(content)
 
         except ImportError:
             raise RuntimeError("openai package not installed")
@@ -111,9 +109,7 @@ class EvaluatorAgent:
     async def _call_anthropic(self, prompt: str) -> dict[str, Any]:
         """Call Anthropic API."""
         try:
-            import anthropic
-
-            client = anthropic.AsyncAnthropic(api_key=self.config.api_key)
+            client = self.config.create_anthropic_client()
 
             response = await client.messages.create(
                 model=self.config.model,
@@ -125,8 +121,7 @@ class EvaluatorAgent:
             )
 
             content = response.content[0].text
-            # Extract JSON from response
-            return json.loads(content)
+            return parse_json_response(content)
 
         except ImportError:
             raise RuntimeError("anthropic package not installed")

@@ -102,10 +102,9 @@ test.describe('AI Features', () => {
   });
 
   test.describe('Frame Templates', () => {
-    test('should create frames with type-specific content', async ({ page }) => {
-      // Create Bug frame
-      await page.getByRole('button', { name: 'New Frame' }).click();
-      await page.getByRole('button', { name: /Bug Fix/i }).click();
+    test('should create frames with type-specific content', async ({ page, createFrame }) => {
+      // Create Bug frame via API
+      await createFrame('bug');
 
       // Should have bug-specific checklist
       await expect(page.getByText(/bug|issue|reproduce/i).first()).toBeVisible();
@@ -113,9 +112,8 @@ test.describe('AI Features', () => {
       // Go back
       await page.getByRole('button', { name: 'Dashboard' }).click();
 
-      // Create Feature frame
-      await page.getByRole('button', { name: 'New Frame' }).click();
-      await page.getByRole('button', { name: /Feature/i }).click();
+      // Create Feature frame via API
+      await createFrame('feature');
 
       // Should have feature-specific checklist
       await expect(page.getByText(/feature|user.*need|scope/i).first()).toBeVisible();

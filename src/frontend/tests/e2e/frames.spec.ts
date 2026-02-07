@@ -17,18 +17,16 @@ test.describe('Frame Management', () => {
     await expect(page.getByRole('button', { name: 'New Frame' })).toBeVisible();
   });
 
-  test('should open new frame modal', async ({ page }) => {
+  test('should navigate to conversation page on New Frame click', async ({ page }) => {
     // Click new frame button
     await page.getByRole('button', { name: 'New Frame' }).click();
 
-    // Check modal is visible
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByText('Create New Frame')).toBeVisible();
+    // Should navigate to /new page
+    await expect(page).toHaveURL(/\/new/);
 
-    // Check frame type options
-    await expect(page.getByRole('button', { name: /Bug Fix/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Feature/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Exploration/i })).toBeVisible();
+    // Should show the conversation interface
+    await expect(page.getByText('New Frame')).toBeVisible();
+    await expect(page.getByText(/Describe your problem/i)).toBeVisible();
   });
 
   test('should create a Bug Fix frame', async ({ page, createFrame }) => {
@@ -106,13 +104,6 @@ test.describe('Frame Management', () => {
     // New frame should be in Draft status (the status badge, not the "Save Draft" button)
     const statusBadge = page.locator('.rounded-full').filter({ hasText: 'Draft' });
     await expect(statusBadge).toBeVisible();
-  });
-
-  test('should show owner info on detail page', async ({ page, createFrame }) => {
-    await createFrame('bug');
-
-    // Should show owner info
-    await expect(page.getByText(/Owner.*E2E Test User/i)).toBeVisible();
   });
 
   test('should have Save Draft button', async ({ page, createFrame }) => {

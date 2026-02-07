@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Briefcase, FileText, Archive, Settings, LogIn, LogOut, User, Users, Shield } from 'lucide-react';
+import { Briefcase, FileText, Archive, Settings, LogIn, LogOut, User, Users } from 'lucide-react';
 import { AppSpace } from '@/types';
 import { useFrameStore } from '@/store';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -156,25 +156,6 @@ export function LeftNav({ onSettingsClick, onLoginClick }: LeftNavProps) {
             )}
           </div>
         )}
-
-        {/* Admin Button */}
-        <div className="p-3 border-b border-slate-700">
-          <button
-            onClick={() => setCurrentSpace('admin')}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-              currentSpace === 'admin'
-                ? 'bg-slate-800 text-white'
-                : 'hover:bg-slate-800/50 text-slate-400 hover:text-slate-200'
-            )}
-          >
-            <Shield className={cn(
-              'h-4.5 w-4.5',
-              currentSpace === 'admin' ? 'text-violet-400' : 'text-slate-500'
-            )} />
-            <span className="text-sm font-medium">Admin</span>
-          </button>
-        </div>
 
         {/* Settings Button */}
         <div className="p-3">

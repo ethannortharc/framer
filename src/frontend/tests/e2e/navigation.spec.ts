@@ -14,6 +14,7 @@ test.describe('Navigation', () => {
   test('should display navigation items', async ({ page }) => {
     // Check navigation items in sidebar
     await expect(page.getByRole('button', { name: /Working Space/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Knowledge/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Templates/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Archive/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Settings/i })).toBeVisible();
@@ -35,6 +36,17 @@ test.describe('Navigation', () => {
     // Archive button should now have active styling
     const archiveButton = page.getByRole('button', { name: /Archive/i });
     await expect(archiveButton).toHaveClass(/bg-slate-800/);
+  });
+
+  test('should navigate to Knowledge page', async ({ page }) => {
+    // Click on Knowledge
+    await page.getByRole('button', { name: /Knowledge/i }).click();
+
+    // Should navigate to knowledge page
+    await expect(page).toHaveURL(/\/knowledge/);
+
+    // Should show knowledge page header
+    await expect(page.getByRole('heading', { name: 'Knowledge Base' })).toBeVisible();
   });
 
   test('should switch back to Working Space', async ({ page }) => {

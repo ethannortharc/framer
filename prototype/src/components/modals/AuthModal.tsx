@@ -17,11 +17,12 @@ interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  required?: boolean;
 }
 
 type AuthMode = 'login' | 'register';
 
-export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
+export function AuthModal({ open, onOpenChange, onSuccess, required }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,10 +79,16 @@ export function AuthModal({ open, onOpenChange, onSuccess }: AuthModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={(open) => {
+      if (required) return;
       if (!open) resetForm();
       onOpenChange(open);
     }}>
-      <DialogContent className="max-w-sm">
+      <DialogContent
+        className="max-w-sm"
+        onInteractOutside={required ? (e) => e.preventDefault() : undefined}
+        onEscapeKeyDown={required ? (e) => e.preventDefault() : undefined}
+        hideCloseButton={required}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === 'login' ? (

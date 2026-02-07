@@ -41,11 +41,14 @@ services:
       - DEBUG=${DEBUG:-false}
       # AI Configuration
       - AI_CONFIG_PATH=/config/ai.yaml
-      - AI_PROVIDER=${AI_PROVIDER:-openai}
-      - AI_MODEL=${AI_MODEL:-gpt-4o}
+      - AI_PROVIDER=${AI_PROVIDER:-}
+      - AI_MODEL=${AI_MODEL:-}
       - AI_API_KEY=${AI_API_KEY:-}
-      - AI_TEMPERATURE=${AI_TEMPERATURE:-0.7}
-      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-4096}
+      - AI_ENDPOINT=${AI_ENDPOINT:-}
+      - AI_TEMPERATURE=${AI_TEMPERATURE:-}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-}
+      - AI_TIMEOUT=${AI_TIMEOUT:-}
+      - AI_SSL_VERIFY=${AI_SSL_VERIFY:-}
     volumes:
       - backend_data:/data
       - ./config:/config:ro

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Briefcase, FileText, Archive, Settings, LogOut } from 'lucide-react';
+import { Briefcase, FileText, Archive, Settings, LogOut, Brain } from 'lucide-react';
 import { AppSpace } from '@/types';
 import { useFrameStore } from '@/store';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -17,6 +17,12 @@ const navItems: { id: AppSpace; label: string; icon: React.ElementType; descript
     label: 'Working Space',
     icon: Briefcase,
     description: 'Active frames',
+  },
+  {
+    id: 'knowledge',
+    label: 'Knowledge',
+    icon: Brain,
+    description: 'Team learnings',
   },
   {
     id: 'templates',

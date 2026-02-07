@@ -1,22 +1,27 @@
 # AI Configuration for Framer Backend
 # This file configures the AI providers used for frame evaluation, generation, and refinement.
+# Mounted into Docker at /config/ai.yaml
 
-# Provider: openai, anthropic, or local
-provider: openai
+# Provider: openai, anthropic
+provider: anthropic
 
 # Model to use
-# OpenAI: gpt-4o, gpt-4-turbo, gpt-3.5-turbo
-# Anthropic: claude-3-opus, claude-3-sonnet, claude-3-haiku
-model: gpt-4o
+model: forti-coder
 
-# API key - prefer using environment variable AI_API_KEY instead
+# API key - set via AI_API_KEY environment variable or override locally
 # api_key: sk-...
 
-# Custom API endpoint (optional, for local LLMs or proxies)
-# endpoint: http://localhost:8080/v1
+# Custom API endpoint (for local LLMs or proxies)
+endpoint: https://aicoding.fortinet-us.com:7001/yvr
 
 # Temperature (0-2, lower = more deterministic)
 temperature: 0.7
 
 # Max tokens for responses
 max_tokens: 4096
+
+# Request timeout in seconds
+timeout: 3000
+
+# SSL certificate verification (set to false for self-signed certs)
+ssl_verify: false
