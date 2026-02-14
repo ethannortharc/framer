@@ -3,19 +3,29 @@
   "checkpoint_id": "0332e4a9d7e4",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 5,
+  "checkpoints_count": 20,
   "files_touched": [
+    "src/backend/app/agents/conversation.py",
     "src/backend/app/api/ai.py",
     "src/backend/app/api/conversations.py",
     "src/backend/app/api/frames.py",
+    "src/backend/app/api/knowledge.py",
     "src/backend/app/api/templates.py",
+    "src/backend/app/main.py",
+    "src/backend/app/models/conversation.py",
     "src/backend/app/models/frame.py",
     "src/backend/app/models/template.py",
+    "src/backend/app/services/conversation_service.py",
     "src/backend/app/services/frame_service.py",
+    "src/backend/app/services/git_service.py",
     "src/backend/app/services/template_service.py",
+    "src/frontend/src/app/archive/page.tsx",
     "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/knowledge/page.tsx",
     "src/frontend/src/app/new/page.tsx",
     "src/frontend/src/app/templates/page.tsx",
+    "src/frontend/src/components/conversation/ChatInterface.tsx",
+    "src/frontend/src/components/frame/FeedbackForm.tsx",
     "src/frontend/src/lib/api/client.ts",
     "src/frontend/src/lib/api/transforms.ts",
     "src/frontend/src/store/conversationStore.ts",
@@ -29,13 +39,20 @@
       "context": "/03/32e4a9d7e4/0/context.md",
       "content_hash": "/03/32e4a9d7e4/0/content_hash.txt",
       "prompt": "/03/32e4a9d7e4/0/prompt.txt"
+    },
+    {
+      "metadata": "/03/32e4a9d7e4/1/metadata.json",
+      "transcript": "/03/32e4a9d7e4/1/full.jsonl",
+      "context": "/03/32e4a9d7e4/1/context.md",
+      "content_hash": "/03/32e4a9d7e4/1/content_hash.txt",
+      "prompt": "/03/32e4a9d7e4/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 76,
-    "cache_creation_tokens": 124218,
-    "cache_read_tokens": 6171849,
-    "output_tokens": 2470,
-    "api_call_count": 64
+    "input_tokens": 409,
+    "cache_creation_tokens": 730305,
+    "cache_read_tokens": 39056157,
+    "output_tokens": 28595,
+    "api_call_count": 359
   }
 }
