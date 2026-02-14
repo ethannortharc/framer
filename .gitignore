@@ -17,6 +17,7 @@ out/
 
 # Claude
 .claude/
+.entire/
 .playwright-mcp/
 **/CLAUDE.md
 
