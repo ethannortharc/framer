@@ -1,0 +1,16 @@
+# Session Context
+
+## User Prompts
+
+### Prompt 1
+
+please help to support the markdown display very well in the framer display page and apply the chagne to local dev deployment
+
+### Prompt 2
+
+please include the AI evaluation result in the frame display page as well. and no required sections for the frame, so once the AI evaluation think  it's good to move to next review step, that should be good to go. And please allow to continue the conversation and based on the  updated conversatioin to update the frame as well.
+
+### Prompt 3
+
+[Request interrupted by user for tool use]
+

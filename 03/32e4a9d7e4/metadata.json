@@ -3,7 +3,7 @@
   "checkpoint_id": "0332e4a9d7e4",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 20,
+  "checkpoints_count": 21,
   "files_touched": [
     "src/backend/app/agents/conversation.py",
     "src/backend/app/api/ai.py",
@@ -46,13 +46,20 @@
       "context": "/03/32e4a9d7e4/1/context.md",
       "content_hash": "/03/32e4a9d7e4/1/content_hash.txt",
       "prompt": "/03/32e4a9d7e4/1/prompt.txt"
+    },
+    {
+      "metadata": "/03/32e4a9d7e4/2/metadata.json",
+      "transcript": "/03/32e4a9d7e4/2/full.jsonl",
+      "context": "/03/32e4a9d7e4/2/context.md",
+      "content_hash": "/03/32e4a9d7e4/2/content_hash.txt",
+      "prompt": "/03/32e4a9d7e4/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 409,
-    "cache_creation_tokens": 730305,
-    "cache_read_tokens": 39056157,
-    "output_tokens": 28595,
-    "api_call_count": 359
+    "input_tokens": 1817,
+    "cache_creation_tokens": 823306,
+    "cache_read_tokens": 40251285,
+    "output_tokens": 28986,
+    "api_call_count": 377
   }
 }
