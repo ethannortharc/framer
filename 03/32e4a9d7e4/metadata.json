@@ -3,9 +3,20 @@
   "checkpoint_id": "0332e4a9d7e4",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 21,
+  "checkpoints_count": 41,
   "files_touched": [
+    ".gitignore",
+    "docker-compose.yml",
+    "docs/plans/2026-02-13-admin-portal-design.md",
+    "docs/plans/2026-02-13-admin-portal-plan.md",
+    "pocketbase/pb_migrations/1771024523_updated_teams.js",
+    "pocketbase/pb_migrations/1771024626_updated_team_members.js",
+    "src/backend/app/agents/config.py",
     "src/backend/app/agents/conversation.py",
+    "src/backend/app/agents/evaluator.py",
+    "src/backend/app/agents/generator.py",
+    "src/backend/app/agents/refiner.py",
+    "src/backend/app/api/admin.py",
     "src/backend/app/api/ai.py",
     "src/backend/app/api/conversations.py",
     "src/backend/app/api/frames.py",
@@ -19,6 +30,10 @@
     "src/backend/app/services/frame_service.py",
     "src/backend/app/services/git_service.py",
     "src/backend/app/services/template_service.py",
+    "src/frontend/src/app/admin/layout.tsx",
+    "src/frontend/src/app/admin/page.tsx",
+    "src/frontend/src/app/admin/settings/page.tsx",
+    "src/frontend/src/app/admin/users/page.tsx",
     "src/frontend/src/app/archive/page.tsx",
     "src/frontend/src/app/frame/[id]/page.tsx",
     "src/frontend/src/app/knowledge/page.tsx",
@@ -26,6 +41,10 @@
     "src/frontend/src/app/templates/page.tsx",
     "src/frontend/src/components/conversation/ChatInterface.tsx",
     "src/frontend/src/components/frame/FeedbackForm.tsx",
+    "src/frontend/src/components/layout/AdminNav.tsx",
+    "src/frontend/src/contexts/AdminAuthContext.tsx",
+    "src/frontend/src/contexts/AuthContext.tsx",
+    "src/frontend/src/lib/api/adminAuth.ts",
     "src/frontend/src/lib/api/client.ts",
     "src/frontend/src/lib/api/transforms.ts",
     "src/frontend/src/store/conversationStore.ts",
@@ -53,13 +72,20 @@
       "context": "/03/32e4a9d7e4/2/context.md",
       "content_hash": "/03/32e4a9d7e4/2/content_hash.txt",
       "prompt": "/03/32e4a9d7e4/2/prompt.txt"
+    },
+    {
+      "metadata": "/03/32e4a9d7e4/3/metadata.json",
+      "transcript": "/03/32e4a9d7e4/3/full.jsonl",
+      "context": "/03/32e4a9d7e4/3/context.md",
+      "content_hash": "/03/32e4a9d7e4/3/content_hash.txt",
+      "prompt": "/03/32e4a9d7e4/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1817,
-    "cache_creation_tokens": 823306,
-    "cache_read_tokens": 40251285,
-    "output_tokens": 28986,
-    "api_call_count": 377
+    "input_tokens": 28873,
+    "cache_creation_tokens": 1599941,
+    "cache_read_tokens": 64915274,
+    "output_tokens": 51861,
+    "api_call_count": 634
   }
 }
