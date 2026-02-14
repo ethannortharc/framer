@@ -1,0 +1,41 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "0332e4a9d7e4",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "src/backend/app/api/ai.py",
+    "src/backend/app/api/conversations.py",
+    "src/backend/app/api/frames.py",
+    "src/backend/app/api/templates.py",
+    "src/backend/app/models/frame.py",
+    "src/backend/app/models/template.py",
+    "src/backend/app/services/frame_service.py",
+    "src/backend/app/services/template_service.py",
+    "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/new/page.tsx",
+    "src/frontend/src/app/templates/page.tsx",
+    "src/frontend/src/lib/api/client.ts",
+    "src/frontend/src/lib/api/transforms.ts",
+    "src/frontend/src/store/conversationStore.ts",
+    "src/frontend/src/store/index.ts",
+    "src/frontend/src/types/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/03/32e4a9d7e4/0/metadata.json",
+      "transcript": "/03/32e4a9d7e4/0/full.jsonl",
+      "context": "/03/32e4a9d7e4/0/context.md",
+      "content_hash": "/03/32e4a9d7e4/0/content_hash.txt",
+      "prompt": "/03/32e4a9d7e4/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 76,
+    "cache_creation_tokens": 124218,
+    "cache_read_tokens": 6171849,
+    "output_tokens": 2470,
+    "api_call_count": 64
+  }
+}

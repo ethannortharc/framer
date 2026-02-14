@@ -1,0 +1,124 @@
+Implement the following plan:
+
+# Plan: AI Evaluation Display, Flexible Submit, and Conversation Continuation
+
+## Context
+Three related UX improvements to the frame workflow:
+1. **AI evaluation results are invisible** — the backend evaluates frames but the frontend only shows a tiny score badge; breakdown, feedback, and issues are never displayed
+2. **Submit gate is too rigid** — requires all 4 sections to be filled; user wants AI evaluation to be the quality signal instead
+3. **Conversations are dead after synthesis** — users can't continue refining and re-synthesize to update the frame
+
+Additionally, the evaluate endpoint has a **pre-existing bug**: frontend calls `/api/ai/evaluate` but backend registers it at `/api/frames/{frame_id}/ai/evaluate`. Response types are also misaligned.
+
+## Changes
+
+### Phase 1: Fix AI Evaluation Endpoint & Types
+
+**`src/frontend/src/lib/api/client.ts`**
+- Fix `evaluateFrame()` to call `/api/frames/${frameId}/ai/evaluate` (path param, no body)
+- Align `AIEvaluateResponse` to match actual backend response:
+  ```typescript
+  export interface AIEvaluateResponse {
+    score: number;
+    breakdown: Record<string, number>;  // e.g. {problem_statement: 20, ...}
+    feedback: string;
+    issues: string[];
+  }
+  ```
+
+**`src/frontend/src/types/index.ts`**
+- Simplify `AIScoreBreakdown` to `Record<string, number>` (backend returns dynamic keys)
+- Simplify `AIIssue` to just `string` (backend returns `string[]`)
+- Update `Frame` interface: `aiScoreBreakdown?: Record<string, number>`, `aiIssues?: string[]`, `aiSummary?: string`
+
+**`src/frontend/src/lib/api/transforms.ts`**
+- Simplify `transformAIEvaluation()` — pass through breakdown as-is, map issues as strings, use `feedback` field
+
+### Phase 2: Display AI Evaluation on Frame Page
+
+**`src/frontend/src/app/frame/[id]/page.tsx`**
+- Add an "AI Evaluation" card below the document view when `frame.aiScore` exists, showing:
+  - Overall score with color-coded ring/badge
+  - Score breakdown as labeled progress bars (problem_statement: X/25, etc.)
+  - Feedback text rendered as markdown
+  - Issues list with warning icons
+- Add an "Evaluate" button in the header for draft frames (manual trigger)
+
+### Phase 3: Remove Required Sections Gate
+
+**`src/frontend/src/app/frame/[id]/page.tsx`**
+- Remove `hasAllContent` check as submit gate
+- Always allow "Submit for Review" (the button is always enabled for drafts)
+- After submit, AI evaluation runs automatically (already happens in `submitForReview` store action)
+- Show the evaluation results to communicate quality
+
+**`src/backend/app/services/frame_service.py`**
+- Remove reviewer/approver enforcement in `update_frame_status()` (lines 175-178) — these are optional workflow features, not hard gates
+
+**`src/frontend/src/store/index.ts`**
+- In `submitForReview()`: remove the requirement for reviewer assignment — just save, update status, evaluate
+
+### Phase 4: Allow Continuing Conversation After Synthesis
+
+**`src/backend/app/api/conversations.py`**
+- In `send_message()` (line 173): If status is SYNTHESIZED, auto-reactivate to ACTIVE before processing (instead of rejecting)
+- In `synthesize_frame()` (line 256): If status is SYNTHESIZED and conv already has a `frame_id`, **update the existing frame** via `frame_service.update_frame_content()` instead of creating a new one. Keep conversation SYNTHESIZED after.
+
+**`src/frontend/src/app/new/page.tsx`**
+- Remove `isReadOnly` logic — synthesized conversations are editable
+- Keep chat input enabled after synthesis
+- Change "Synthesize Frame" button to "Update Frame" when `activeConversation.frameId` exists
+- Show "View Frame" button alongside the synthesize/update button (not instead of it)
+
+**`src/frontend/src/store/conversationStore.ts`**
+- In `sendMessage()`: After successful send on a previously synthesized conversation, update status back to `active` locally
+- In `synthesizeFrame()`: Keep existing behavior (it already handles the response from backend)
+
+## Files Changed
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/frontend/src/lib/api/client.ts` | Modify | Fix evaluate endpoint path, align response type |
+| `src/frontend/src/types/index.ts` | Modify | Simplify AI evaluation types |
+| `src/frontend/src/lib/api/transforms.ts` | Modify | Simplify evaluation transform |
+| `src/frontend/src/app/frame/[id]/page.tsx` | Modify | Add AI evaluation display, remove hasAllContent gate |
+| `src/frontend/src/app/new/page.tsx` | Modify | Enable conversation continuation, update button labels |
+| `src/frontend/src/store/index.ts` | Modify | Remove reviewer gate from submitForReview |
+| `src/frontend/src/store/conversationStore.ts` | Modify | Handle post-synthesis message sending |
+| `src/backend/app/api/conversations.py` | Modify | Allow messages on synthesized convs, support frame updates |
+| `src/backend/app/services/frame_service.py` | Modify | Remove reviewer/approver enforcement |
+
+## Verification
+1. `cd src/frontend && npm run build` — TypeScript compiles
+2. `docker compose --env-file config/.env.dev up -d --build backend frontend`
+3. Navigate to existing frame → AI evaluation panel should appear (if evaluated)
+4. Create new frame via conversation → synthesize → see evaluation after submit
+5. From frame page, click "Continue Conversation" → send messages → re-synthesize → frame content updates
+6. Submit a frame with empty sections → should be allowed, AI evaluation shows quality feedback
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+
+---
+
+please deploy the changes to the local dev env
+
+---
+
+why the evaluation in the frame is not the same with the conversation, i think for the same frame, that should be the same and we can just display the result in the frame until the user trigger a new update.
+
+---
+
+please deploy the changes each time there is update
+
+---
+
+deply the last change
+
+---
+
+please display the real name of the user in the conversation. please add the input for complete feedback. for the review, please be able to choose user. once enter into review, please make the source conversation be fixed, not editable, and start a review conversation if necessary, in that conversation, the reviewser can talk to ai agent and finally summarize teh review comments after the frame.
+
+---
+
+[Request interrupted by user for tool use]
