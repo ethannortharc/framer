@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Loader2, User, Bot } from 'lucide-react';
+import { Send, Loader2, User, Bot, RotateCcw } from 'lucide-react';
 import { ConversationMessage } from '@/types';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,14 +10,20 @@ interface ChatInterfaceProps {
   messages: ConversationMessage[];
   isTyping: boolean;
   onSendMessage: (content: string) => void;
+  onRetryMessage?: (messageId: string) => void;
   disabled?: boolean;
+  userName?: string;
+  botName?: string;
 }
 
 export function ChatInterface({
   messages,
   isTyping,
   onSendMessage,
+  onRetryMessage,
   disabled = false,
+  userName,
+  botName = 'Coach',
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -79,23 +85,49 @@ export function ChatInterface({
             )}
           >
             {msg.role === 'assistant' && (
-              <div className="flex-shrink-0 h-7 w-7 rounded-full bg-violet-100 flex items-center justify-center mt-0.5">
-                <Bot className="h-4 w-4 text-violet-600" />
+              <div className="flex-shrink-0 flex flex-col items-center gap-0.5 mt-0.5">
+                <div className="h-7 w-7 rounded-full bg-violet-100 flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-violet-600" />
+                </div>
+                <span className="text-[10px] text-slate-400">{botName}</span>
               </div>
             )}
-            <div
-              className={cn(
-                'max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed',
-                msg.role === 'user'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-800'
+            <div className="flex flex-col items-end gap-1">
+              <div
+                className={cn(
+                  'max-w-[80%] rounded-xl px-4 py-2.5 text-sm leading-relaxed',
+                  msg.role === 'user'
+                    ? msg.status === 'failed'
+                      ? 'bg-red-900 text-white'
+                      : 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-800'
+                )}
+              >
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+              {msg.status === 'failed' && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-red-500">Failed to send</span>
+                  {onRetryMessage && (
+                    <button
+                      onClick={() => onRetryMessage(msg.id)}
+                      className="flex items-center gap-1 text-[11px] text-red-600 hover:text-red-700 font-medium"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Retry
+                    </button>
+                  )}
+                </div>
               )}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
             {msg.role === 'user' && (
-              <div className="flex-shrink-0 h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center mt-0.5">
-                <User className="h-4 w-4 text-slate-600" />
+              <div className="flex-shrink-0 flex flex-col items-center gap-0.5 mt-0.5">
+                <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center">
+                  <User className="h-4 w-4 text-slate-600" />
+                </div>
+                {userName && (
+                  <span className="text-[10px] text-slate-400">{userName.split(' ')[0]}</span>
+                )}
               </div>
             )}
           </div>

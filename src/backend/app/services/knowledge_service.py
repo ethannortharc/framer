@@ -43,7 +43,7 @@ class KnowledgeService:
         source: KnowledgeSource,
         author: str,
         source_id: Optional[str] = None,
-        team_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         tags: Optional[list[str]] = None,
     ) -> KnowledgeEntry:
         entry_id = self._generate_id()
@@ -57,7 +57,7 @@ class KnowledgeService:
             category=category,
             source=source,
             source_id=source_id,
-            team_id=team_id,
+            project_id=project_id,
             author=author,
             tags=tags or [],
         )
@@ -74,7 +74,7 @@ class KnowledgeService:
     def list_entries(
         self,
         category: Optional[KnowledgeCategory] = None,
-        team_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         tags: Optional[list[str]] = None,
     ) -> list[KnowledgeEntry]:
         entries = []
@@ -87,7 +87,7 @@ class KnowledgeService:
                     entry = self.get_entry(entry_dir.name)
                     if category and entry.category != category:
                         continue
-                    if team_id and entry.team_id != team_id:
+                    if project_id is not None and entry.project_id != project_id:
                         continue
                     if tags and not any(t in entry.tags for t in tags):
                         continue

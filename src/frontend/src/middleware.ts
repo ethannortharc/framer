@@ -18,6 +18,11 @@ export function middleware(request: NextRequest) {
   // Check if the route is public
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
+  // Skip middleware for admin routes (they have their own auth context)
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
+
   // Get auth token from cookie or localStorage (we check cookie for SSR)
   const authCookie = request.cookies.get('framer-auth');
   const isAuthenticated = !!authCookie?.value;

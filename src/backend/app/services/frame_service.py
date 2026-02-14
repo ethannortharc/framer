@@ -48,6 +48,7 @@ class FrameService:
         frame_type: FrameType,
         owner: str,
         content: Optional[FrameContent] = None,
+        project_id: Optional[str] = None,
     ) -> Frame:
         """Create a new frame."""
         frame_id = self._generate_frame_id()
@@ -60,6 +61,7 @@ class FrameService:
             type=frame_type,
             status=FrameStatus.DRAFT,
             owner=owner,
+            project_id=project_id,
         )
 
         # Create content (empty if not provided)
@@ -93,8 +95,8 @@ class FrameService:
 
         return Frame(meta=meta, content=content)
 
-    def list_frames(self) -> list[Frame]:
-        """List all frames."""
+    def list_frames(self, project_id: Optional[str] = None) -> list[Frame]:
+        """List all frames, optionally filtered by project_id."""
         frames = []
 
         if not self.frames_path.exists():
@@ -104,6 +106,8 @@ class FrameService:
             if frame_dir.is_dir() and frame_dir.name.startswith("f-"):
                 try:
                     frame = self.get_frame(frame_dir.name)
+                    if project_id is not None and frame.meta.project_id != project_id:
+                        continue
                     frames.append(frame)
                 except Exception:
                     # Skip invalid frames
@@ -171,12 +175,6 @@ class FrameService:
         meta_file = frame_dir / "meta.yaml"
         meta = FrameMeta.from_yaml(meta_file.read_text())
 
-        # Enforce reviewer/approver requirements
-        if status == FrameStatus.IN_REVIEW and not meta.reviewer:
-            raise ValueError("A reviewer must be assigned before submitting for review")
-        if status == FrameStatus.READY and not meta.approver:
-            raise ValueError("An approver must be assigned before marking as ready")
-
         # Update status and timestamp
         meta.status = status
         meta.updated_at = datetime.now(timezone.utc)
@@ -188,6 +186,61 @@ class FrameService:
         frame_file = frame_dir / "frame.md"
         content = FrameContent.from_markdown(frame_file.read_text())
 
+        return Frame(meta=meta, content=content)
+
+    def save_evaluation(
+        self,
+        frame_id: str,
+        score: int,
+        breakdown: dict[str, int],
+        feedback: str,
+        issues: list[str],
+    ) -> Frame:
+        """Persist AI evaluation results to frame metadata."""
+        frame_dir = self._get_frame_dir(frame_id)
+        if not frame_dir.exists():
+            raise FrameNotFoundError(f"Frame not found: {frame_id}")
+
+        meta_file = frame_dir / "meta.yaml"
+        meta = FrameMeta.from_yaml(meta_file.read_text())
+
+        meta.ai_score = score
+        meta.ai_breakdown = breakdown
+        meta.ai_feedback = feedback
+        meta.ai_issues = issues
+        meta.ai_evaluated_at = datetime.now(timezone.utc)
+        meta.updated_at = datetime.now(timezone.utc)
+
+        meta_file.write_text(meta.to_yaml())
+
+        frame_file = frame_dir / "frame.md"
+        content = FrameContent.from_markdown(frame_file.read_text())
+        return Frame(meta=meta, content=content)
+
+    def save_review_summary(
+        self,
+        frame_id: str,
+        summary: str,
+        comments: list[dict],
+        recommendation: str,
+    ) -> Frame:
+        """Save review summary to frame metadata."""
+        frame_dir = self._get_frame_dir(frame_id)
+        if not frame_dir.exists():
+            raise FrameNotFoundError(f"Frame not found: {frame_id}")
+
+        meta_file = frame_dir / "meta.yaml"
+        meta = FrameMeta.from_yaml(meta_file.read_text())
+
+        meta.review_summary = summary
+        meta.review_comments = comments
+        meta.review_recommendation = recommendation
+        meta.updated_at = datetime.now(timezone.utc)
+
+        meta_file.write_text(meta.to_yaml())
+
+        frame_file = frame_dir / "frame.md"
+        content = FrameContent.from_markdown(frame_file.read_text())
         return Frame(meta=meta, content=content)
 
     def delete_frame(self, frame_id: str) -> None:

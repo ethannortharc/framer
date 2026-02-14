@@ -10,43 +10,11 @@ export interface User {
   avatar?: string;
 }
 
-export interface UserPerspective {
-  user: string;
-  context: string;
-  journeySteps: string[];
-  painPoints: string[];
-}
+// AI evaluation breakdown: dynamic keys mapping section name to score (0-25 each)
+export type AIScoreBreakdown = Record<string, number>;
 
-export interface EngineeringFraming {
-  principles: string[];
-  nonGoals: string[];
-}
-
-export interface ValidationThinking {
-  successSignals: string[];
-  disconfirmingEvidence: string[];
-}
-
-export interface Confirmation {
-  understandsUserPerspective: boolean;
-  understandsTradeoffs: boolean;
-  knowsValidation: boolean;
-}
-
-export interface AIScoreBreakdown {
-  problemClarity: number; // out of 20
-  userPerspective: number; // out of 20
-  engineeringFraming: number; // out of 25
-  validationThinking: number; // out of 20
-  internalConsistency: number; // out of 15
-}
-
-export interface AIIssue {
-  id: string;
-  section: 'header' | 'user' | 'engineering' | 'validation';
-  severity: 'warning' | 'error';
-  message: string;
-}
+// AI issues are simple string descriptions
+export type AIIssue = string;
 
 export interface ReviewComment {
   id: string;
@@ -80,18 +48,23 @@ export interface Frame {
   id: string;
   type: FrameType;
   status: FrameStatus;
+  projectId?: string;
   problemStatement: string;
-  userPerspective: UserPerspective;
-  engineeringFraming: EngineeringFraming;
-  validationThinking: ValidationThinking;
-  confirmation: Confirmation;
+  userPerspective: string;
+  engineeringFraming: string;
+  validationThinking: string;
   ownerId: string;
+  reviewer?: string;
+  approver?: string;
   createdAt: Date;
   updatedAt: Date;
   aiScore?: number;
   aiScoreBreakdown?: AIScoreBreakdown;
   aiIssues?: AIIssue[];
-  aiSummary?: string;
+  aiFeedback?: string;
+  reviewSummary?: string;
+  reviewComments?: Array<{ section: string; content: string; severity: string }>;
+  reviewRecommendation?: string;
   comments?: ReviewComment[];
   reviewDecision?: ReviewDecision;
   feedback?: FrameFeedback;
@@ -118,11 +91,26 @@ export interface ChatMessage {
 // Section types for AI context
 export type FrameSection = 'header' | 'user' | 'engineering' | 'validation';
 
+// Project types
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  role?: string;
+}
+
 // Navigation spaces
-export type AppSpace = 'working' | 'templates' | 'archive' | 'knowledge';
+export type AppSpace = 'working' | 'archive' | 'knowledge';
 
 // Conversation types
 export type ConversationStatus = 'active' | 'synthesized' | 'abandoned';
+export type ConversationPurpose = 'authoring' | 'review';
 
 export interface ConversationMessage {
   id: string;
@@ -130,6 +118,7 @@ export interface ConversationMessage {
   content: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
+  status?: 'sent' | 'failed';
 }
 
 export interface ConversationState {
@@ -148,7 +137,9 @@ export interface Conversation {
   id: string;
   owner: string;
   status: ConversationStatus;
+  purpose: ConversationPurpose;
   frameId: string | null;
+  projectId?: string;
   messages: ConversationMessage[];
   state: ConversationState;
   createdAt: string;
@@ -159,7 +150,9 @@ export interface ConversationListItem {
   id: string;
   owner: string;
   status: ConversationStatus;
+  purpose: ConversationPurpose;
   frameId: string | null;
+  projectId?: string;
   messageCount: number;
   updatedAt: string;
 }
@@ -175,7 +168,7 @@ export interface KnowledgeEntry {
   category: KnowledgeCategory;
   source: KnowledgeSource;
   sourceId?: string;
-  teamId?: string;
+  projectId?: string;
   author: string;
   tags: string[];
   createdAt: string;

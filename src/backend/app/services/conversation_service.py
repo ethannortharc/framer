@@ -15,6 +15,7 @@ from app.models.conversation import (
     Conversation,
     ConversationMeta,
     ConversationMessage,
+    ConversationPurpose,
     ConversationState,
     ConversationStatus,
 )
@@ -82,12 +83,24 @@ class ConversationService:
         state_file = conv_dir / "state.json"
         state_file.write_text(json.dumps(state.model_dump(), indent=2))
 
-    def create_conversation(self, owner: str) -> Conversation:
+    def create_conversation(
+        self,
+        owner: str,
+        purpose: Optional[ConversationPurpose] = None,
+        frame_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> Conversation:
         conv_id = self._generate_id()
         conv_dir = self._get_conv_dir(conv_id)
         conv_dir.mkdir(parents=True, exist_ok=True)
 
-        meta = ConversationMeta(id=conv_id, owner=owner)
+        meta = ConversationMeta(
+            id=conv_id,
+            owner=owner,
+            purpose=purpose or ConversationPurpose.AUTHORING,
+            frame_id=frame_id,
+            project_id=project_id,
+        )
         state = ConversationState()
 
         (conv_dir / "meta.yaml").write_text(meta.to_yaml())
@@ -108,7 +121,11 @@ class ConversationService:
         return Conversation(meta=meta, messages=messages, state=state)
 
     def list_conversations(
-        self, owner: Optional[str] = None, status: Optional[ConversationStatus] = None
+        self,
+        owner: Optional[str] = None,
+        status: Optional[ConversationStatus] = None,
+        frame_id: Optional[str] = None,
+        project_id: Optional[str] = None,
     ) -> list[Conversation]:
         conversations = []
         if not self.conversations_path.exists():
@@ -121,6 +138,10 @@ class ConversationService:
                     if owner and conv.owner != owner:
                         continue
                     if status and conv.status != status:
+                        continue
+                    if frame_id and conv.meta.frame_id != frame_id:
+                        continue
+                    if project_id is not None and conv.meta.project_id != project_id:
                         continue
                     conversations.append(conv)
                 except Exception:

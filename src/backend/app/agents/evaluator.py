@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.agents.config import AIConfig, parse_json_response
+from app.agents.config import AIConfig, parse_json_response, call_ai_with_retry
 
 
 class EvaluationResult(BaseModel):
@@ -60,10 +60,7 @@ class EvaluatorAgent:
 
     async def _call_ai(self, prompt: str) -> dict[str, Any]:
         """
-        Call the AI provider with the prompt.
-
-        This method should be overridden or mocked in tests.
-        In production, it would use the configured AI provider.
+        Call the AI provider with the prompt, with retry on transient failures.
 
         Args:
             prompt: The evaluation prompt
@@ -71,15 +68,15 @@ class EvaluatorAgent:
         Returns:
             Parsed response with score, breakdown, feedback, and issues
         """
-        # This is a placeholder that would be replaced with actual AI calls
-        # For now, return a structured response format
+        async def _do_call():
+            if self.config.is_openai_compatible:
+                return await self._call_openai(prompt)
+            elif self.config.provider == "anthropic":
+                return await self._call_anthropic(prompt)
+            else:
+                raise ValueError(f"Unsupported provider: {self.config.provider}")
 
-        if self.config.provider == "openai":
-            return await self._call_openai(prompt)
-        elif self.config.provider == "anthropic":
-            return await self._call_anthropic(prompt)
-        else:
-            raise ValueError(f"Unsupported provider: {self.config.provider}")
+        return await call_ai_with_retry(_do_call)
 
     async def _call_openai(self, prompt: str) -> dict[str, Any]:
         """Call OpenAI API."""

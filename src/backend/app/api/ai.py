@@ -11,7 +11,85 @@ from app.agents.generator import GeneratorAgent
 from app.agents.refiner import RefinerAgent
 from app.agents.config import AIConfig, get_ai_config as get_global_ai_config
 from app.services.frame_service import FrameService, FrameNotFoundError
-from app.services.template_service import TemplateService
+
+
+# Inline prompt templates (previously loaded from data/templates/*/prompts/)
+EVALUATE_PROMPT = """You are an expert software engineering reviewer evaluating a frame. Assess the quality and completeness of the pre-development thinking.
+
+## Frame Content
+
+{frame_content}
+
+## Evaluation Criteria
+
+Score each section (0-25 points each, total 100):
+
+1. **Problem Statement** (0-25)
+   - Is the problem clearly defined?
+   - Is the business value articulated?
+   - Are success metrics defined?
+
+2. **User Perspective** (0-25)
+   - Are target users identified?
+   - Is the user journey understood?
+   - Are pain points specific?
+
+3. **Engineering Framing** (0-25)
+   - Is the solution approach clear?
+   - Are technical decisions documented?
+   - Are non-goals explicit?
+   - Are risks identified?
+
+4. **Validation Thinking** (0-25)
+   - Are acceptance criteria defined?
+   - Is there a testing plan?
+   - Is the rollout strategy reasonable?
+
+## Response Format
+
+Provide your evaluation as JSON:
+```json
+{
+  "score": <total 0-100>,
+  "breakdown": {
+    "problem_statement": <0-25>,
+    "user_perspective": <0-25>,
+    "engineering_framing": <0-25>,
+    "validation_thinking": <0-25>
+  },
+  "feedback": "<overall assessment>",
+  "issues": ["<specific issue 1>", "<specific issue 2>", ...]
+}
+```
+"""
+
+GENERATE_PROMPT = """You are an expert technical writer helping create documentation. Generate content for the {section} section based on the provided questionnaire answers.
+
+## Section: {section}
+
+## Questionnaire Answers
+
+{formatted_answers}
+
+## Instructions
+
+Generate well-structured content for the {section} section. The content should:
+- Be clear and concise
+- Use bullet points where appropriate
+- Include specific details from the answers
+- Follow product development best practices
+- Balance user needs with technical feasibility
+
+## Response Format
+
+Provide your response as JSON:
+```json
+{
+  "content": "<generated markdown content>",
+  "suggestions": ["<improvement suggestion 1>", "<improvement suggestion 2>"]
+}
+```
+"""
 
 
 # Request models
@@ -57,11 +135,6 @@ def get_frame_service(request: Request) -> FrameService:
     return request.app.state.frame_service
 
 
-def get_template_service(request: Request) -> TemplateService:
-    """Dependency to get the template service."""
-    return request.app.state.template_service
-
-
 def get_ai_config(request: Request) -> AIConfig:
     """Dependency to get AI configuration."""
     return get_global_ai_config()
@@ -75,7 +148,6 @@ def create_ai_router() -> APIRouter:
     async def evaluate_frame(
         frame_id: str,
         frame_service: FrameService = Depends(get_frame_service),
-        template_service: TemplateService = Depends(get_template_service),
         config: AIConfig = Depends(get_ai_config),
     ) -> EvaluationResponse:
         """Evaluate a frame using AI."""
@@ -87,15 +159,8 @@ def create_ai_router() -> APIRouter:
                 detail=f"Frame not found: {frame_id}",
             )
 
-        # Get evaluation prompt from template
-        template = template_service.get_template_by_type(frame.type)
-        prompt_template = "Evaluate this frame:\n\n{frame_content}"
-
-        if template and template.get_prompt("evaluate"):
-            prompt_template = template.get_prompt("evaluate").content
-
         # Create evaluator and run
-        evaluator = EvaluatorAgent(prompt_template=prompt_template, config=config)
+        evaluator = EvaluatorAgent(prompt_template=EVALUATE_PROMPT, config=config)
 
         # Build frame content string
         frame_content = f"""# Problem Statement
@@ -113,6 +178,15 @@ def create_ai_router() -> APIRouter:
 
         result = await evaluator.evaluate(frame_content=frame_content)
 
+        # Persist evaluation results to the frame
+        frame_service.save_evaluation(
+            frame_id=frame_id,
+            score=result["score"],
+            breakdown=result["breakdown"],
+            feedback=result["feedback"],
+            issues=result["issues"],
+        )
+
         return EvaluationResponse(
             score=result["score"],
             breakdown=result["breakdown"],
@@ -125,7 +199,6 @@ def create_ai_router() -> APIRouter:
         frame_id: str,
         request: GenerateRequest,
         frame_service: FrameService = Depends(get_frame_service),
-        template_service: TemplateService = Depends(get_template_service),
         config: AIConfig = Depends(get_ai_config),
     ) -> GenerationResponse:
         """Generate content for a frame section."""
@@ -137,15 +210,8 @@ def create_ai_router() -> APIRouter:
                 detail=f"Frame not found: {frame_id}",
             )
 
-        # Get generation prompt from template
-        template = template_service.get_template_by_type(frame.type)
-        prompt_template = "Generate {section} content from:\n{formatted_answers}"
-
-        if template and template.get_prompt("generate-section"):
-            prompt_template = template.get_prompt("generate-section").content
-
         # Create generator and run
-        generator = GeneratorAgent(prompt_template=prompt_template, config=config)
+        generator = GeneratorAgent(prompt_template=GENERATE_PROMPT, config=config)
 
         result = await generator.generate_from_questionnaire(
             section=request.section,

@@ -4,78 +4,89 @@
  * Convert between backend (snake_case) and frontend (camelCase) formats.
  */
 
-import type { Frame, FrameType, FrameStatus, AIScoreBreakdown, AIIssue } from '@/types';
+import type { Frame, FrameType, FrameStatus } from '@/types';
 import type { FrameResponse, FrameListItem, AIEvaluateResponse } from './client';
 
 /**
- * Parse JSON content strings from backend
+ * Normalize content that may be a JSON-stringified object into readable markdown.
+ * Handles legacy frames where structured objects were stored as JSON strings.
  */
-function parseContentSection(content: string): unknown {
-  if (!content || content.trim() === '') {
-    return null;
+function normalizeContent(content: string): string {
+  if (!content || content.trim() === '') return '';
+
+  // Try to detect if it's a JSON object string
+  const trimmed = content.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return flattenObjectToMarkdown(parsed);
+      }
+    } catch {
+      // Not valid JSON, return as-is
+    }
   }
-  try {
-    return JSON.parse(content);
-  } catch {
-    // If not valid JSON, return as string
-    return content;
+
+  return content;
+}
+
+/**
+ * Convert a legacy structured object into readable markdown text.
+ */
+function flattenObjectToMarkdown(obj: Record<string, unknown>): string {
+  const lines: string[] = [];
+
+  for (const [key, value] of Object.entries(obj)) {
+    // Convert camelCase key to readable label
+    const label = key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, (s) => s.toUpperCase())
+      .trim();
+
+    if (Array.isArray(value)) {
+      if (value.length > 0) {
+        lines.push(`**${label}:**`);
+        for (const item of value) {
+          lines.push(`- ${String(item)}`);
+        }
+        lines.push('');
+      }
+    } else if (typeof value === 'string' && value.trim()) {
+      lines.push(`**${label}:** ${value}`);
+      lines.push('');
+    } else if (typeof value === 'boolean') {
+      // skip booleans (confirmation fields)
+    }
   }
+
+  return lines.join('\n').trim();
 }
 
 /**
  * Transform backend FrameResponse to frontend Frame
  */
 export function transformFrameResponse(response: FrameResponse): Frame {
-  // Parse user perspective from JSON string
-  const userPerspective = parseContentSection(response.content.user_perspective);
-  const engineeringFraming = parseContentSection(response.content.engineering_framing);
-  const validationThinking = parseContentSection(response.content.validation_thinking);
-
   return {
     id: response.id,
     type: response.type as FrameType,
     status: response.status as FrameStatus,
+    projectId: response.meta.project_id ?? undefined,
     problemStatement: response.content.problem_statement || '',
-    userPerspective: userPerspective && typeof userPerspective === 'object'
-      ? {
-          user: (userPerspective as { user?: string }).user || '',
-          context: (userPerspective as { context?: string }).context || '',
-          journeySteps: (userPerspective as { journeySteps?: string[] }).journeySteps || [],
-          painPoints: (userPerspective as { painPoints?: string[] }).painPoints || [],
-        }
-      : {
-          user: '',
-          context: typeof userPerspective === 'string' ? userPerspective : '',
-          journeySteps: [],
-          painPoints: [],
-        },
-    engineeringFraming: engineeringFraming && typeof engineeringFraming === 'object'
-      ? {
-          principles: (engineeringFraming as { principles?: string[] }).principles || [],
-          nonGoals: (engineeringFraming as { nonGoals?: string[] }).nonGoals || [],
-        }
-      : {
-          principles: [],
-          nonGoals: [],
-        },
-    validationThinking: validationThinking && typeof validationThinking === 'object'
-      ? {
-          successSignals: (validationThinking as { successSignals?: string[] }).successSignals || [],
-          disconfirmingEvidence: (validationThinking as { disconfirmingEvidence?: string[] }).disconfirmingEvidence || [],
-        }
-      : {
-          successSignals: [],
-          disconfirmingEvidence: [],
-        },
-    confirmation: {
-      understandsUserPerspective: false,
-      understandsTradeoffs: false,
-      knowsValidation: false,
-    },
+    userPerspective: normalizeContent(response.content.user_perspective),
+    engineeringFraming: normalizeContent(response.content.engineering_framing),
+    validationThinking: normalizeContent(response.content.validation_thinking),
     ownerId: response.owner,
     createdAt: new Date(response.meta.created_at),
     updatedAt: new Date(response.meta.updated_at),
+    reviewer: response.meta.reviewer ?? undefined,
+    approver: response.meta.approver ?? undefined,
     aiScore: response.meta.ai_score ?? undefined,
+    aiScoreBreakdown: response.meta.ai_breakdown ?? undefined,
+    aiFeedback: response.meta.ai_feedback ?? undefined,
+    aiIssues: response.meta.ai_issues ?? undefined,
+    reviewSummary: response.meta.review_summary ?? undefined,
+    reviewComments: response.meta.review_comments ?? undefined,
+    reviewRecommendation: response.meta.review_recommendation ?? undefined,
   };
 }
 
@@ -90,9 +101,9 @@ export function transformFrameToContent(frame: Frame): {
 } {
   return {
     problem_statement: frame.problemStatement,
-    user_perspective: JSON.stringify(frame.userPerspective),
-    engineering_framing: JSON.stringify(frame.engineeringFraming),
-    validation_thinking: JSON.stringify(frame.validationThinking),
+    user_perspective: frame.userPerspective,
+    engineering_framing: frame.engineeringFraming,
+    validation_thinking: frame.validationThinking,
   };
 }
 
@@ -104,6 +115,7 @@ export function transformFrameListItem(item: FrameListItem): {
   type: FrameType;
   status: FrameStatus;
   ownerId: string;
+  projectId?: string;
   updatedAt: Date;
 } {
   return {
@@ -111,6 +123,7 @@ export function transformFrameListItem(item: FrameListItem): {
     type: item.type as FrameType,
     status: item.status as FrameStatus,
     ownerId: item.owner,
+    projectId: item.project_id ?? undefined,
     updatedAt: new Date(item.updated_at),
   };
 }
@@ -120,25 +133,14 @@ export function transformFrameListItem(item: FrameListItem): {
  */
 export function transformAIEvaluation(response: AIEvaluateResponse): {
   score: number;
-  breakdown: AIScoreBreakdown;
-  issues: AIIssue[];
-  summary: string;
+  breakdown: Record<string, number>;
+  issues: string[];
+  feedback: string;
 } {
   return {
     score: response.score,
-    breakdown: {
-      problemClarity: response.breakdown.problem_clarity,
-      userPerspective: response.breakdown.user_perspective,
-      engineeringFraming: response.breakdown.engineering_framing,
-      validationThinking: response.breakdown.validation_thinking,
-      internalConsistency: response.breakdown.internal_consistency,
-    },
-    issues: response.issues.map((issue, index) => ({
-      id: `issue-${index}`,
-      section: issue.section as AIIssue['section'],
-      severity: issue.severity as AIIssue['severity'],
-      message: issue.message,
-    })),
-    summary: response.summary,
+    breakdown: response.breakdown,
+    issues: response.issues,
+    feedback: response.feedback,
   };
 }

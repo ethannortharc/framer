@@ -25,6 +25,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = ['/login'];
 
+// Routes managed by their own auth context
+const isExcludedRoute = (path: string) => path.startsWith('/admin');
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const auth = getAuthService();
   const router = useRouter();
@@ -37,6 +40,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const currentUser = auth.getUser();
+
+      if (isExcludedRoute(pathname)) {
+        // Skip user auth for admin routes (they have their own auth)
+        setIsLoading(false);
+        return;
+      }
 
       if (currentUser) {
         // Try to refresh token if we have one
@@ -69,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
-    if (!user && !isPublicRoute) {
+    if (!user && !isPublicRoute && !isExcludedRoute(pathname)) {
       router.replace('/login');
     } else if (user && pathname === '/login') {
       router.replace('/dashboard');

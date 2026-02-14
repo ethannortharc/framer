@@ -9,13 +9,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.frames import create_frames_router
-from app.api.templates import create_templates_router
 from app.api.ai import create_ai_router
 from app.api.users import create_users_router
 from app.api.conversations import create_conversations_router
 from app.api.knowledge import create_knowledge_router
+from app.api.admin import create_admin_router
 from app.services.frame_service import FrameService
-from app.services.template_service import TemplateService
 from app.services.git_service import GitService
 from app.services.index_service import IndexService
 from app.services.conversation_service import ConversationService
@@ -60,8 +59,8 @@ def create_app(
 
     # Initialize services
     frame_service = FrameService(data_path=data_path)
-    template_service = TemplateService(data_path=data_path)
     git_service = GitService(data_path=data_path)
+    git_service.init_repo()  # Ensure git repo exists for version tracking
     index_service = IndexService(data_path=data_path)
     conversation_service = ConversationService(data_path=data_path)
     knowledge_service = KnowledgeService(data_path=data_path)
@@ -72,7 +71,6 @@ def create_app(
 
     # Store services in app state for dependency injection
     app.state.frame_service = frame_service
-    app.state.template_service = template_service
     app.state.git_service = git_service
     app.state.index_service = index_service
     app.state.conversation_service = conversation_service
@@ -84,11 +82,6 @@ def create_app(
         create_frames_router(require_auth=require_auth),
         prefix="/api/frames",
         tags=["frames"],
-    )
-    app.include_router(
-        create_templates_router(),
-        prefix="/api/templates",
-        tags=["templates"],
     )
     app.include_router(
         create_ai_router(),
@@ -109,6 +102,12 @@ def create_app(
         create_knowledge_router(require_auth=require_auth),
         prefix="/api/knowledge",
         tags=["knowledge"],
+    )
+
+    app.include_router(
+        create_admin_router(),
+        prefix="/api/admin",
+        tags=["admin"],
     )
 
     return app

@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from app.agents.config import AIConfig, parse_json_response
+from app.agents.config import AIConfig, parse_json_response, call_ai_with_retry
 
 
 class GenerationResult(BaseModel):
@@ -67,7 +67,7 @@ class GeneratorAgent:
 
     async def _call_ai(self, prompt: str) -> dict[str, Any]:
         """
-        Call the AI provider with the prompt.
+        Call the AI provider with the prompt, with retry on transient failures.
 
         Args:
             prompt: The generation prompt
@@ -75,12 +75,15 @@ class GeneratorAgent:
         Returns:
             Parsed response with content and suggestions
         """
-        if self.config.provider == "openai":
-            return await self._call_openai(prompt)
-        elif self.config.provider == "anthropic":
-            return await self._call_anthropic(prompt)
-        else:
-            raise ValueError(f"Unsupported provider: {self.config.provider}")
+        async def _do_call():
+            if self.config.is_openai_compatible:
+                return await self._call_openai(prompt)
+            elif self.config.provider == "anthropic":
+                return await self._call_anthropic(prompt)
+            else:
+                raise ValueError(f"Unsupported provider: {self.config.provider}")
+
+        return await call_ai_with_retry(_do_call)
 
     async def _call_openai(self, prompt: str) -> dict[str, Any]:
         """Call OpenAI API."""

@@ -7,7 +7,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from app.agents.config import get_ai_config
+from app.agents.config import get_ai_config, parse_json_response
 from app.models.knowledge import KnowledgeCategory, KnowledgeSource
 from app.services.knowledge_service import KnowledgeService, KnowledgeNotFoundError
 from app.services.vector_service import VectorService
@@ -21,7 +21,7 @@ class CreateKnowledgeRequest(BaseModel):
     category: KnowledgeCategory
     source: KnowledgeSource = KnowledgeSource.MANUAL
     source_id: Optional[str] = None
-    team_id: Optional[str] = None
+    project_id: Optional[str] = None
     author: str
     tags: list[str] = Field(default_factory=list)
 
@@ -40,7 +40,7 @@ class KnowledgeResponse(BaseModel):
     category: str
     source: str
     source_id: Optional[str] = None
-    team_id: Optional[str] = None
+    project_id: Optional[str] = None
     author: str
     tags: list[str]
     created_at: str
@@ -74,7 +74,7 @@ def _to_response(entry) -> KnowledgeResponse:
         category=entry.category.value,
         source=entry.source.value,
         source_id=entry.source_id,
-        team_id=entry.team_id,
+        project_id=entry.project_id,
         author=entry.author,
         tags=entry.tags,
         created_at=entry.created_at.isoformat(),
@@ -110,7 +110,7 @@ def create_knowledge_router(require_auth: bool = False) -> APIRouter:
             category=request.category,
             source=request.source,
             source_id=request.source_id,
-            team_id=request.team_id,
+            project_id=request.project_id,
             author=request.author,
             tags=request.tags,
         )
@@ -124,7 +124,7 @@ def create_knowledge_router(require_auth: bool = False) -> APIRouter:
                 metadata={
                     "category": entry.category.value,
                     "author": entry.author,
-                    "team_id": entry.team_id or "",
+                    "project_id": entry.project_id or "",
                 },
             )
         except Exception:
@@ -135,7 +135,7 @@ def create_knowledge_router(require_auth: bool = False) -> APIRouter:
     @router.get("")
     def list_entries(
         category: Optional[str] = None,
-        team_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         tags: Optional[str] = None,
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
     ) -> list[KnowledgeResponse]:
@@ -143,7 +143,7 @@ def create_knowledge_router(require_auth: bool = False) -> APIRouter:
         tags_filter = tags.split(",") if tags else None
         entries = knowledge_service.list_entries(
             category=cat_filter,
-            team_id=team_id,
+            project_id=project_id,
             tags=tags_filter,
         )
         return [_to_response(e) for e in entries]
@@ -187,7 +187,7 @@ def create_knowledge_router(require_auth: bool = False) -> APIRouter:
                     metadata={
                         "category": entry.category.value,
                         "author": entry.author,
-                        "team_id": entry.team_id or "",
+                        "project_id": entry.project_id or "",
                     },
                 )
             except Exception:
@@ -310,8 +310,7 @@ Respond with JSON:
         entries = []
         try:
             if config.provider == "openai":
-                import openai
-                client = openai.AsyncOpenAI(api_key=config.api_key)
+                client = config.create_openai_client()
                 response = await client.chat.completions.create(
                     model=config.model,
                     messages=[
@@ -322,17 +321,16 @@ Respond with JSON:
                     max_tokens=config.max_tokens,
                     response_format={"type": "json_object"},
                 )
-                result = json.loads(response.choices[0].message.content)
+                result = parse_json_response(response.choices[0].message.content)
             elif config.provider == "anthropic":
-                import anthropic
-                client = anthropic.AsyncAnthropic(api_key=config.api_key)
+                client = config.create_anthropic_client()
                 response = await client.messages.create(
                     model=config.model,
                     max_tokens=config.max_tokens,
                     messages=[{"role": "user", "content": distill_prompt}],
                     system="Extract knowledge entries from content. Respond with JSON.",
                 )
-                result = json.loads(response.content[0].text)
+                result = parse_json_response(response.content[0].text)
             else:
                 result = {"entries": []}
 

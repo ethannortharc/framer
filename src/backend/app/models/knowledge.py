@@ -42,7 +42,7 @@ class KnowledgeEntry(BaseModel):
     category: KnowledgeCategory
     source: KnowledgeSource
     source_id: Optional[str] = None
-    team_id: Optional[str] = None
+    project_id: Optional[str] = None
     author: str
     tags: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -71,8 +71,8 @@ class KnowledgeEntry(BaseModel):
         }
         if self.source_id:
             data["source_id"] = self.source_id
-        if self.team_id:
-            data["team_id"] = self.team_id
+        if self.project_id:
+            data["project_id"] = self.project_id
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
     @classmethod
@@ -85,7 +85,7 @@ class KnowledgeEntry(BaseModel):
             category=KnowledgeCategory(data["category"]),
             source=KnowledgeSource(data["source"]),
             source_id=data.get("source_id"),
-            team_id=data.get("team_id"),
+            project_id=data.get("project_id") or data.get("team_id"),
             author=data["author"],
             tags=data.get("tags", []),
             created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))

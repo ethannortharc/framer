@@ -8,15 +8,19 @@ from pydantic import BaseModel, Field
 
 from app.agents.config import get_ai_config
 from app.agents.conversation import ConversationAgent
-from app.models.conversation import ConversationState, ConversationStatus
+from app.models.conversation import ConversationPurpose, ConversationState, ConversationStatus
 from app.services.conversation_service import ConversationService, ConversationNotFoundError
 from app.services.vector_service import VectorService
+from app.services.git_service import GitService
 from app.auth.pocketbase import get_current_user, User
 
 
 # Request/Response models
 class StartConversationRequest(BaseModel):
     owner: str
+    purpose: Optional[str] = None
+    frame_id: Optional[str] = None
+    project_id: Optional[str] = None
 
 
 class SendMessageRequest(BaseModel):
@@ -42,7 +46,9 @@ class ConversationResponse(BaseModel):
     id: str
     owner: str
     status: str
+    purpose: str = "authoring"
     frame_id: Optional[str] = None
+    project_id: Optional[str] = None
     messages: list[ConversationMessageResponse]
     state: ConversationStateResponse
     created_at: str
@@ -53,7 +59,9 @@ class ConversationListItem(BaseModel):
     id: str
     owner: str
     status: str
+    purpose: str = "authoring"
     frame_id: Optional[str] = None
+    project_id: Optional[str] = None
     message_count: int
     updated_at: str
 
@@ -75,7 +83,9 @@ def _to_conv_response(conv) -> ConversationResponse:
         id=conv.id,
         owner=conv.owner,
         status=conv.status.value,
+        purpose=conv.meta.purpose.value,
         frame_id=conv.meta.frame_id,
+        project_id=conv.meta.project_id,
         messages=[
             ConversationMessageResponse(
                 id=m.id,
@@ -118,23 +128,35 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         request: StartConversationRequest,
         conv_service: ConversationService = Depends(get_conversation_service),
     ) -> ConversationResponse:
-        conv = conv_service.create_conversation(owner=request.owner)
+        purpose = ConversationPurpose(request.purpose) if request.purpose else None
+        conv = conv_service.create_conversation(
+            owner=request.owner,
+            purpose=purpose,
+            frame_id=request.frame_id,
+            project_id=request.project_id,
+        )
         return _to_conv_response(conv)
 
     @router.get("")
     def list_conversations(
         owner: Optional[str] = None,
         conv_status: Optional[str] = None,
+        frame_id: Optional[str] = None,
+        project_id: Optional[str] = None,
         conv_service: ConversationService = Depends(get_conversation_service),
     ) -> list[ConversationListItem]:
         status_filter = ConversationStatus(conv_status) if conv_status else None
-        conversations = conv_service.list_conversations(owner=owner, status=status_filter)
+        conversations = conv_service.list_conversations(
+            owner=owner, status=status_filter, frame_id=frame_id, project_id=project_id,
+        )
         return [
             ConversationListItem(
                 id=c.id,
                 owner=c.owner,
                 status=c.status.value,
+                purpose=c.meta.purpose.value,
                 frame_id=c.meta.frame_id,
+                project_id=c.meta.project_id,
                 message_count=len(c.messages),
                 updated_at=c.meta.updated_at.isoformat(),
             )
@@ -159,6 +181,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
     async def send_message(
         conv_id: str,
         request: SendMessageRequest,
+        http_request: Request = None,
         conv_service: ConversationService = Depends(get_conversation_service),
         vector_service: VectorService = Depends(get_vector_service),
     ) -> SendMessageResponse:
@@ -170,7 +193,11 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 detail=f"Conversation not found: {conv_id}",
             )
 
-        if conv.status != ConversationStatus.ACTIVE:
+        # Auto-reactivate synthesized conversations when user sends a new message
+        if conv.status == ConversationStatus.SYNTHESIZED:
+            conv_service.update_status(conv_id, ConversationStatus.ACTIVE)
+            conv.status = ConversationStatus.ACTIVE
+        elif conv.status != ConversationStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Conversation is not active",
@@ -194,13 +221,36 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         agent = ConversationAgent(config=config)
 
         try:
-            turn = await agent.process_turn(
-                messages=conv.messages,
-                state=conv.state,
-                user_message=request.content,
-                knowledge_context=knowledge_context,
-            )
+            if conv.meta.purpose == ConversationPurpose.REVIEW and conv.meta.frame_id:
+                # Load frame content for review context
+                frame_service = http_request.app.state.frame_service
+                try:
+                    frame = frame_service.get_frame(conv.meta.frame_id)
+                    frame_content = (
+                        f"## Problem Statement\n{frame.content.problem_statement or ''}\n\n"
+                        f"## User Perspective\n{frame.content.user_perspective or ''}\n\n"
+                        f"## Engineering Framing\n{frame.content.engineering_framing or ''}\n\n"
+                        f"## Validation Thinking\n{frame.content.validation_thinking or ''}"
+                    )
+                except Exception:
+                    frame_content = "(Frame content unavailable)"
+
+                turn = await agent.process_review_turn(
+                    messages=conv.messages,
+                    state=conv.state,
+                    user_message=request.content,
+                    frame_content=frame_content,
+                )
+            else:
+                turn = await agent.process_turn(
+                    messages=conv.messages,
+                    state=conv.state,
+                    user_message=request.content,
+                    knowledge_context=knowledge_context,
+                )
         except Exception as e:
+            import logging
+            logging.getLogger("conversations_api").exception(f"AI call failed: {type(e).__name__}: {e}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"AI service error: {str(e)}",
@@ -251,7 +301,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 detail=f"Conversation not found: {conv_id}",
             )
 
-        if conv.status != ConversationStatus.ACTIVE:
+        if conv.status not in (ConversationStatus.ACTIVE, ConversationStatus.SYNTHESIZED):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Conversation is not active",
@@ -262,7 +312,6 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         agent = ConversationAgent(config=config)
         content = await agent.synthesize_frame(conv.messages, conv.state)
 
-        # Create frame via frame service
         from app.models.frame import FrameContent, FrameType
 
         frame_type_str = conv.state.frame_type or "feature"
@@ -275,14 +324,44 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
             engineering_framing=content.get("engineering_framing", ""),
             validation_thinking=content.get("validation_thinking", ""),
         )
-        frame = frame_service.create_frame(
-            frame_type=frame_type,
-            owner=conv.owner,
-            content=frame_content,
-        )
 
-        # Link conversation to frame and mark as synthesized
-        conv_service.link_frame(conv_id, frame.id)
+        # If already synthesized with a linked frame, update existing frame
+        existing_frame_id = conv.meta.frame_id
+        if existing_frame_id:
+            try:
+                frame = frame_service.update_frame_content(existing_frame_id, frame_content)
+            except Exception:
+                # Frame may have been deleted; create a new one
+                frame = frame_service.create_frame(
+                    frame_type=frame_type,
+                    owner=conv.owner,
+                    content=frame_content,
+                    project_id=conv.meta.project_id,
+                )
+                conv_service.link_frame(conv_id, frame.id)
+        else:
+            frame = frame_service.create_frame(
+                frame_type=frame_type,
+                owner=conv.owner,
+                content=frame_content,
+                project_id=conv.meta.project_id,
+            )
+            conv_service.link_frame(conv_id, frame.id)
+
+        # Git commit the frame changes for version history
+        try:
+            git_service: GitService = http_request.app.state.git_service
+            is_update = existing_frame_id is not None
+            git_service.commit_frame_changes(
+                frame_id=frame.id,
+                message=f"{'Re-synthesize' if is_update else 'Synthesize'} frame from conversation",
+                author_name=conv.owner or "system",
+                author_email=f"{conv.owner or 'system'}@framer",
+            )
+        except Exception:
+            pass
+
+        # Mark as synthesized
         conv_service.update_status(conv_id, ConversationStatus.SYNTHESIZED)
 
         # Store frame embedding for future searches
@@ -302,6 +381,52 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
             frame_id=frame.id,
             content=content,
         )
+
+    @router.post("/{conv_id}/summarize-review", dependencies=get_auth_dependencies())
+    async def summarize_review(
+        conv_id: str,
+        http_request: Request = None,
+        conv_service: ConversationService = Depends(get_conversation_service),
+    ):
+        try:
+            conv = conv_service.get_conversation(conv_id)
+        except ConversationNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Conversation not found: {conv_id}",
+            )
+
+        if conv.meta.purpose != ConversationPurpose.REVIEW:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only review conversations can be summarized",
+            )
+
+        config = get_ai_config()
+        agent = ConversationAgent(config=config)
+
+        try:
+            result = await agent.summarize_review(conv.messages)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"AI service error: {str(e)}",
+            )
+
+        # Save review summary to frame
+        if conv.meta.frame_id and http_request:
+            try:
+                frame_service = http_request.app.state.frame_service
+                frame_service.save_review_summary(
+                    frame_id=conv.meta.frame_id,
+                    summary=result.get("summary", ""),
+                    comments=result.get("comments", []),
+                    recommendation=result.get("recommendation", "revise"),
+                )
+            except Exception:
+                pass
+
+        return result
 
     @router.delete("/{conv_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=get_auth_dependencies())
     def delete_conversation(

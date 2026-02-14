@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LeftNav } from '@/components/layout/LeftNav';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { useFrameStore } from '@/store';
+import { useProjectStore } from '@/store/projectStore';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -19,14 +20,22 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuthContext();
   const { loadFrames, isLoading, currentSpace, getArchivedFrames } = useFrameStore();
+  const { loadProjects, currentProjectId } = useProjectStore();
   const [showSettings, setShowSettings] = useState(false);
 
-  // Load frames on mount
+  // Load projects and frames on mount
+  useEffect(() => {
+    if (user) {
+      loadProjects(user.id);
+    }
+  }, [user, loadProjects]);
+
+  // Reload frames when project changes
   useEffect(() => {
     loadFrames();
-  }, [loadFrames]);
+  }, [loadFrames, currentProjectId]);
 
-  // Redirect to knowledge page when that space is selected
+  // Redirect to other pages when their space is selected
   useEffect(() => {
     if (currentSpace === 'knowledge') {
       router.push('/knowledge');
@@ -81,12 +90,6 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-        {currentSpace === 'templates' && (
-          <div className="p-6">
-            <h1 className="text-2xl font-semibold text-slate-900 mb-4">Templates</h1>
-            <p className="text-slate-500">Templates coming soon.</p>
           </div>
         )}
       </div>

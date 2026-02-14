@@ -6,9 +6,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+import logging
+
 from app.models.frame import Frame, FrameContent, FrameStatus, FrameType, Comment
 from app.services.frame_service import FrameService, FrameNotFoundError
+from app.services.git_service import GitService
 from app.auth.pocketbase import get_current_user, User
+
+logger = logging.getLogger(__name__)
 
 
 # Request/Response models
@@ -17,6 +22,7 @@ class CreateFrameRequest(BaseModel):
     type: FrameType
     owner: str
     content: Optional[dict] = None
+    project_id: Optional[str] = None
 
 
 class UpdateFrameRequest(BaseModel):
@@ -33,6 +39,13 @@ class UpdateMetaRequest(BaseModel):
     """Request body for updating frame metadata."""
     reviewer: Optional[str] = None
     approver: Optional[str] = None
+
+
+class SubmitFeedbackRequest(BaseModel):
+    """Request body for submitting implementation feedback."""
+    outcome: str  # success | partial | failed
+    summary: str
+    lessons_learned: list[str] = Field(default_factory=list)
 
 
 class CreateCommentRequest(BaseModel):
@@ -67,9 +80,16 @@ class FrameResponse(BaseModel):
             meta={
                 "created_at": frame.meta.created_at.isoformat(),
                 "updated_at": frame.meta.updated_at.isoformat(),
+                "project_id": frame.meta.project_id,
                 "ai_score": frame.meta.ai_score,
+                "ai_breakdown": frame.meta.ai_breakdown,
+                "ai_feedback": frame.meta.ai_feedback,
+                "ai_issues": frame.meta.ai_issues,
                 "reviewer": frame.meta.reviewer,
                 "approver": frame.meta.approver,
+                "review_summary": frame.meta.review_summary,
+                "review_comments": frame.meta.review_comments,
+                "review_recommendation": frame.meta.review_recommendation,
             }
         )
 
@@ -80,6 +100,7 @@ class FrameListItem(BaseModel):
     type: str
     status: str
     owner: str
+    project_id: Optional[str] = None
     reviewer: Optional[str] = None
     approver: Optional[str] = None
     updated_at: str
@@ -94,9 +115,35 @@ class CommentResponse(BaseModel):
     created_at: str
 
 
+class FrameHistoryEntry(BaseModel):
+    """Response model for a frame history entry."""
+    hash: str
+    message: str
+    author_name: str
+    timestamp: str
+
+
 def get_frame_service(request: Request) -> FrameService:
     """Dependency to get the frame service from app state."""
     return request.app.state.frame_service
+
+
+def get_git_service(request: Request) -> GitService:
+    """Dependency to get the git service from app state."""
+    return request.app.state.git_service
+
+
+def _git_commit(git_service: GitService, frame_id: str, message: str) -> None:
+    """Auto-commit frame changes. Non-blocking, errors are logged."""
+    try:
+        git_service.commit_frame_changes(
+            frame_id=frame_id,
+            message=message,
+            author_name="Framer",
+            author_email="framer@system",
+        )
+    except Exception as e:
+        logger.warning("Git commit failed for frame %s: %s", frame_id, e)
 
 
 def create_frames_router(require_auth: bool = False) -> APIRouter:
@@ -117,6 +164,7 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
     def create_frame(
         request: CreateFrameRequest,
         frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
     ) -> FrameResponse:
         """Create a new frame."""
         content = None
@@ -127,7 +175,10 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
             frame_type=request.type,
             owner=request.owner,
             content=content,
+            project_id=request.project_id,
         )
+
+        _git_commit(git_service, frame.id, f"Create {request.type.value} frame")
 
         return FrameResponse.from_frame(frame)
 
@@ -150,10 +201,11 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
     def list_frames(
         status: Optional[str] = None,
         owner: Optional[str] = None,
+        project_id: Optional[str] = None,
         frame_service: FrameService = Depends(get_frame_service),
     ) -> list[FrameListItem]:
         """List all frames with optional filters."""
-        frames = frame_service.list_frames()
+        frames = frame_service.list_frames(project_id=project_id)
 
         # Apply filters
         if status:
@@ -167,6 +219,7 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
                 type=f.type.value,
                 status=f.status.value,
                 owner=f.owner,
+                project_id=f.meta.project_id,
                 reviewer=f.meta.reviewer,
                 approver=f.meta.approver,
                 updated_at=f.meta.updated_at.isoformat(),
@@ -179,11 +232,13 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
         frame_id: str,
         request: UpdateFrameRequest,
         frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
     ) -> FrameResponse:
         """Update a frame's content."""
         try:
             content = FrameContent(**request.content)
             frame = frame_service.update_frame_content(frame_id, content)
+            _git_commit(git_service, frame_id, "Update frame content")
             return FrameResponse.from_frame(frame)
         except FrameNotFoundError:
             raise HTTPException(
@@ -196,10 +251,12 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
         frame_id: str,
         request: UpdateStatusRequest,
         frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
     ) -> FrameResponse:
         """Update a frame's status."""
         try:
             frame = frame_service.update_frame_status(frame_id, request.status)
+            _git_commit(git_service, frame_id, f"Status → {request.status.value}")
             return FrameResponse.from_frame(frame)
         except FrameNotFoundError:
             raise HTTPException(
@@ -217,6 +274,7 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
         frame_id: str,
         request: UpdateMetaRequest,
         frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
     ) -> FrameResponse:
         """Update frame metadata (reviewer, approver)."""
         try:
@@ -225,6 +283,31 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
                 reviewer=request.reviewer,
                 approver=request.approver,
             )
+            _git_commit(git_service, frame_id, "Update frame metadata")
+            return FrameResponse.from_frame(frame)
+        except FrameNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Frame not found: {frame_id}",
+            )
+
+    @router.post("/{frame_id}/feedback", dependencies=get_auth_dependencies())
+    def submit_feedback(
+        frame_id: str,
+        request: SubmitFeedbackRequest,
+        frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
+    ) -> FrameResponse:
+        """Submit implementation feedback and archive the frame."""
+        try:
+            frame_service.add_feedback(
+                frame_id=frame_id,
+                went_well=request.summary if request.outcome == "success" else "",
+                could_improve=request.summary if request.outcome != "success" else "",
+                lessons_learned="\n".join(f"- {l}" for l in request.lessons_learned) if request.lessons_learned else "",
+            )
+            frame = frame_service.update_frame_status(frame_id, FrameStatus.ARCHIVED)
+            _git_commit(git_service, frame_id, f"Feedback: {request.outcome}")
             return FrameResponse.from_frame(frame)
         except FrameNotFoundError:
             raise HTTPException(
@@ -296,5 +379,33 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Frame not found: {frame_id}",
             )
+
+    @router.get("/{frame_id}/history")
+    def get_frame_history(
+        frame_id: str,
+        limit: int = 20,
+        frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
+    ) -> list[FrameHistoryEntry]:
+        """Get version history for a frame."""
+        # Verify frame exists
+        try:
+            frame_service.get_frame(frame_id)
+        except FrameNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Frame not found: {frame_id}",
+            )
+
+        history = git_service.get_frame_history(frame_id, limit=limit)
+        return [
+            FrameHistoryEntry(
+                hash=entry["hash"],
+                message=entry["message"],
+                author_name=entry["author_name"],
+                timestamp=entry["timestamp"].isoformat(),
+            )
+            for entry in history
+        ]
 
     return router

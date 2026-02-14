@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Frame, FrameSection, AIConfig, FrameType, FrameStatus, ReviewComment, FrameFeedback, AppSpace } from '@/types';
 import { getAPIClient, transformFrameResponse, transformFrameToContent, transformAIEvaluation } from '@/lib/api';
+import { useProjectStore } from './projectStore';
 
 interface FrameStore {
   // Data
@@ -39,7 +40,7 @@ interface FrameStore {
   loadFrames: () => Promise<void>;
 
   // Frame Status
-  submitForReview: (id: string) => Promise<void>;
+  submitForReview: (id: string, reviewerId?: string) => Promise<void>;
   markAsReady: (id: string) => Promise<void>;
   startFeedback: (id: string) => Promise<void>;
   submitFeedback: (id: string, feedback: FrameFeedback) => Promise<void>;
@@ -90,7 +91,10 @@ export const useFrameStore = create<FrameStore>()(
         set({ isLoading: true, error: null });
         try {
           const api = getAPIClient();
-          const frameList = await api.listFrames();
+          const projectId = useProjectStore.getState().currentProjectId;
+          const frameList = await api.listFrames(
+            projectId ? { project_id: projectId } : undefined
+          );
 
           // Load full details for each frame
           const frames: Frame[] = [];
@@ -118,9 +122,11 @@ export const useFrameStore = create<FrameStore>()(
         set({ isLoading: true, error: null });
         try {
           const api = getAPIClient();
+          const projectId = useProjectStore.getState().currentProjectId;
           const response = await api.createFrame({
             type,
             owner: ownerId,
+            project_id: projectId ?? undefined,
           });
           const newFrame = transformFrameResponse(response);
 
@@ -225,7 +231,7 @@ export const useFrameStore = create<FrameStore>()(
       },
 
       // Frame Status
-      submitForReview: async (id) => {
+      submitForReview: async (id, reviewerId?) => {
         const frame = get().getFrame(id);
         if (!frame) return;
 
@@ -235,6 +241,11 @@ export const useFrameStore = create<FrameStore>()(
         set({ isLoading: true, error: null });
         try {
           const api = getAPIClient();
+
+          // Assign reviewer if provided
+          if (reviewerId) {
+            await api.updateFrameMeta(id, { reviewer: reviewerId });
+          }
 
           // Update status via API
           await api.updateFrameStatus(id, 'in_review');
@@ -252,7 +263,7 @@ export const useFrameStore = create<FrameStore>()(
                     aiScore: transformed.score,
                     aiScoreBreakdown: transformed.breakdown,
                     aiIssues: transformed.issues,
-                    aiSummary: transformed.summary,
+                    aiFeedback: transformed.feedback,
                     updatedAt: new Date(),
                   }
                 : f
@@ -317,7 +328,11 @@ export const useFrameStore = create<FrameStore>()(
         set({ isLoading: true, error: null });
         try {
           const api = getAPIClient();
-          await api.updateFrameStatus(id, 'archived');
+          await api.submitFeedback(id, {
+            outcome: feedback.outcome,
+            summary: feedback.summary,
+            lessons_learned: feedback.lessonsLearned,
+          });
           set({ isLoading: false });
         } catch (err) {
           set({
@@ -357,7 +372,7 @@ export const useFrameStore = create<FrameStore>()(
                     aiScore: transformed.score,
                     aiScoreBreakdown: transformed.breakdown,
                     aiIssues: transformed.issues,
-                    aiSummary: transformed.summary,
+                    aiFeedback: transformed.feedback,
                     updatedAt: new Date(),
                   }
                 : f
@@ -415,6 +430,7 @@ export const useFrameStore = create<FrameStore>()(
     }),
     {
       name: 'framer-storage',
+      version: 2,
       partialize: (state) => ({
         frames: state.frames,
         aiConfig: state.aiConfig,

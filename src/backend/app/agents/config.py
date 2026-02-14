@@ -15,7 +15,12 @@ from pydantic import BaseModel, Field
 
 class AIConfig(BaseModel):
     """Configuration for AI providers."""
-    provider: str = Field(default="openai", description="AI provider (openai, anthropic)")
+    provider: str = Field(default="openai", description="AI provider (openai, anthropic, minimax, glm)")
+
+    @property
+    def is_openai_compatible(self) -> bool:
+        """Check if provider uses OpenAI-compatible API."""
+        return self.provider in ("openai", "minimax", "glm")
     model: str = Field(default="gpt-4o", description="Model to use")
     api_key: Optional[str] = Field(default=None, description="API key")
     endpoint: Optional[str] = Field(default=None, description="Custom API endpoint")
@@ -79,6 +84,10 @@ class AIConfig(BaseModel):
             timeout=httpx.Timeout(self.timeout, connect=30.0),
         )
 
+    def _needs_custom_http_client(self) -> bool:
+        """Check if a custom HTTP client is needed."""
+        return bool(self.endpoint) or not self.ssl_verify or self.timeout != 300
+
     def create_openai_client(self):
         """Create an AsyncOpenAI client with endpoint/SSL/timeout settings."""
         import openai
@@ -86,7 +95,7 @@ class AIConfig(BaseModel):
         kwargs: dict = {"api_key": self.api_key}
         if self.endpoint:
             kwargs["base_url"] = self.endpoint
-        if not self.ssl_verify or self.timeout != 300:
+        if self._needs_custom_http_client():
             kwargs["http_client"] = self.get_http_client()
         return openai.AsyncOpenAI(**kwargs)
 
@@ -97,7 +106,7 @@ class AIConfig(BaseModel):
         kwargs: dict = {"api_key": self.api_key}
         if self.endpoint:
             kwargs["base_url"] = self.endpoint
-        if not self.ssl_verify or self.timeout != 300:
+        if self._needs_custom_http_client():
             kwargs["http_client"] = self.get_http_client()
         return anthropic.AsyncAnthropic(**kwargs)
 
@@ -134,6 +143,35 @@ def parse_json_response(text: str) -> dict:
         return json.loads(stripped)
     except json.JSONDecodeError:
         return json.loads(stripped, strict=False)
+
+
+async def call_ai_with_retry(fn, max_retries: int = 4, retry_delay: float = 1.0):
+    """Call an async AI function with retry and exponential backoff on transient failures."""
+    import asyncio
+    import logging
+
+    logger = logging.getLogger("ai_retry")
+    last_error = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return await fn()
+        except (ValueError, Exception) as e:
+            error_msg = str(e)
+            is_retryable = (
+                "Empty" in error_msg
+                or "No JSON" in error_msg
+                or "Expecting value" in error_msg
+                or "JSONDecodeError" in type(e).__name__
+            )
+            if not is_retryable or attempt >= max_retries:
+                raise
+            last_error = e
+            delay = retry_delay * (2 ** attempt)  # exponential backoff: 1s, 2s, 4s, 8s
+            logger.warning(f"AI call attempt {attempt + 1}/{max_retries + 1} failed ({error_msg}), retrying in {delay}s...")
+            await asyncio.sleep(delay)
+
+    raise last_error  # unreachable but satisfies type checker
 
 
 # Singleton instance for the application

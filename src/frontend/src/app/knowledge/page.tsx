@@ -34,6 +34,13 @@ import {
   GraduationCap,
   Loader2,
   Trash2,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  Tag,
+  MessageSquare,
+  ThumbsUp,
+  PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +84,9 @@ export default function KnowledgePage() {
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [newEntry, setNewEntry] = useState({
     title: '',
     content: '',
@@ -102,11 +112,13 @@ export default function KnowledgePage() {
       return;
     }
     setIsSearching(true);
+    setCurrentPage(1);
     await searchKnowledge(searchQuery, selectedCategory || undefined);
   };
 
   const handleCategoryFilter = (category: KnowledgeCategory | null) => {
     setSelectedCategory(category);
+    setCurrentPage(1);
     if (category) {
       loadEntries(category);
     } else {
@@ -141,12 +153,32 @@ export default function KnowledgePage() {
         content: r.content,
         category: (r.metadata as any)?.category || 'lesson',
         source: 'manual',
+        sourceId: undefined as string | undefined,
         author: (r.metadata as any)?.author || '',
         tags: [],
         createdAt: '',
         updatedAt: '',
       }))
     : entries;
+
+  const getSourceInfo = (source: string) => {
+    switch (source) {
+      case 'feedback':
+        return { label: 'Frame Feedback', icon: ThumbsUp, color: 'text-emerald-600 bg-emerald-50' };
+      case 'conversation':
+        return { label: 'Conversation', icon: MessageSquare, color: 'text-violet-600 bg-violet-50' };
+      case 'manual':
+        return { label: 'Manual', icon: PenLine, color: 'text-slate-600 bg-slate-100' };
+      default:
+        return { label: source, icon: FileText, color: 'text-slate-600 bg-slate-100' };
+    }
+  };
+
+  const totalPages = Math.ceil(displayEntries.length / pageSize);
+  const paginatedEntries = displayEntries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -242,57 +274,167 @@ export default function KnowledgePage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {displayEntries.map((entry) => {
+            <div className="space-y-3">
+              {paginatedEntries.map((entry) => {
                 const cat = entry.category as KnowledgeCategory;
                 const config = categoryConfig[cat] || categoryConfig.lesson;
                 const Icon = config.icon;
+                const isExpanded = expandedId === entry.id;
+                const sourceInfo = getSourceInfo(entry.source);
+                const SourceIcon = sourceInfo.icon;
 
                 return (
                   <div
                     key={entry.id}
-                    className="rounded-xl border border-slate-200 bg-white p-4 hover:shadow-sm transition-shadow"
+                    className="rounded-xl border border-slate-200 bg-white overflow-hidden hover:shadow-sm transition-shadow"
                   >
-                    <div className="flex items-start gap-3">
+                    {/* Clickable header row */}
+                    <div
+                      className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors"
+                      onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                      )}
                       <div
                         className={cn(
-                          'p-2 rounded-lg flex-shrink-0',
+                          'p-1.5 rounded-lg flex-shrink-0',
                           config.color
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon className="h-3.5 w-3.5" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-slate-900 truncate">
-                          {entry.title || 'Untitled'}
-                        </h3>
-                        <p className="text-xs text-slate-600 mt-1 line-clamp-3">
-                          {entry.content}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
-                            {config.label}
-                          </span>
-                          {(entry.tags || []).slice(0, 2).map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-[10px] bg-violet-50 text-violet-600 px-1.5 py-0.5 rounded"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                      <h3 className="text-sm font-medium text-slate-900 flex-1 truncate">
+                        {entry.title || 'Untitled'}
+                      </h3>
+                      {/* Source badge — always visible */}
+                      <span className={cn(
+                        'flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0',
+                        sourceInfo.color
+                      )}>
+                        <SourceIcon className="h-3 w-3" />
+                        {sourceInfo.label}
+                      </span>
                       <button
-                        onClick={() => deleteEntry(entry.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteEntry(entry.id);
+                        }}
+                        className="p-1 text-slate-400 hover:text-red-500 transition-colors flex-shrink-0"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
+
+                    {/* Collapsed preview */}
+                    {!isExpanded && (
+                      <div className="px-4 pb-3 -mt-1">
+                        <p className="text-xs text-slate-500 line-clamp-2 ml-[3.25rem]">
+                          {entry.content}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Expanded full content */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 px-4 py-4 ml-[3.25rem] space-y-3">
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {entry.content}
+                        </p>
+
+                        {/* Source detail */}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <SourceIcon className="h-3 w-3" />
+                          <span>Source: <span className="text-slate-500 font-medium">{sourceInfo.label}</span></span>
+                          {entry.sourceId && (
+                            <span className="text-slate-300">({entry.sourceId.slice(0, 20)}...)</span>
+                          )}
+                          {entry.author && (
+                            <>
+                              <span className="text-slate-300 mx-1">|</span>
+                              <span>by <span className="text-slate-500">{entry.author}</span></span>
+                            </>
+                          )}
+                          {entry.createdAt && (
+                            <>
+                              <span className="text-slate-300 mx-1">|</span>
+                              <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        {(entry.tags || []).length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Tag className="h-3 w-3 text-slate-400" />
+                            {entry.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[11px] bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6">
+              <p className="text-sm text-slate-500">
+                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, displayEntries.length)} of {displayEntries.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setCurrentPage((p) => p - 1); setExpandedId(null); }}
+                  disabled={currentPage <= 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .reduce<(number | 'dots')[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('dots');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, i) =>
+                    item === 'dots' ? (
+                      <span key={`dots-${i}`} className="px-1 text-slate-400 text-sm">...</span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={currentPage === item ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => { setCurrentPage(item as number); setExpandedId(null); }}
+                        className="h-8 w-8 p-0 text-xs"
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setCurrentPage((p) => p + 1); setExpandedId(null); }}
+                  disabled={currentPage >= totalPages}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </div>

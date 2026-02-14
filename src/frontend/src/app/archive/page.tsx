@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive } from 'lucide-react';
+import { ArrowLeft, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useFrameStore } from '@/store';
 import { formatDate, truncate } from '@/lib/utils';
 
+const PAGE_SIZE = 10;
+
 export default function ArchivePage() {
   const router = useRouter();
   const { frames, loadFrames, getArchivedFrames } = useFrameStore();
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (frames.length === 0) {
@@ -20,6 +23,11 @@ export default function ArchivePage() {
   }, [frames.length, loadFrames]);
 
   const archivedFrames = getArchivedFrames();
+  const totalPages = Math.ceil(archivedFrames.length / PAGE_SIZE);
+  const paginatedFrames = archivedFrames.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -46,7 +54,7 @@ export default function ArchivePage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {archivedFrames.map((frame) => (
+            {paginatedFrames.map((frame) => (
               <Card
                 key={frame.id}
                 onClick={() => router.push(`/frame/${frame.id}`)}
@@ -82,6 +90,57 @@ export default function ArchivePage() {
                 </div>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <p className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, archivedFrames.length)} of {archivedFrames.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => p - 1)}
+                disabled={currentPage <= 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | 'dots')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('dots');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, i) =>
+                  item === 'dots' ? (
+                    <span key={`dots-${i}`} className="px-1 text-slate-400 text-sm">...</span>
+                  ) : (
+                    <Button
+                      key={item}
+                      variant={currentPage === item ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentPage(item as number)}
+                      className="h-8 w-8 p-0 text-xs"
+                    >
+                      {item}
+                    </Button>
+                  )
+                )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={currentPage >= totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>

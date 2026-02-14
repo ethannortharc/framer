@@ -2,11 +2,13 @@ import { create } from 'zustand';
 import {
   Conversation,
   ConversationMessage,
+  ConversationPurpose,
   ConversationState,
   ConversationListItem,
   KnowledgeSearchResult,
 } from '@/types';
 import { getAPIClient } from '@/lib/api';
+import { useProjectStore } from './projectStore';
 
 interface ConversationStore {
   // Data
@@ -20,9 +22,11 @@ interface ConversationStore {
   error: string | null;
 
   // Actions
-  startConversation: (owner: string) => Promise<Conversation>;
+  startConversation: (owner: string, purpose?: ConversationPurpose, frameId?: string) => Promise<Conversation>;
   sendMessage: (content: string) => Promise<void>;
+  retryMessage: (messageId: string) => Promise<void>;
   synthesizeFrame: () => Promise<string | null>;
+  summarizeReview: () => Promise<string | null>;
   loadConversation: (id: string) => Promise<void>;
   loadConversations: (owner?: string) => Promise<void>;
   clearConversation: () => void;
@@ -34,7 +38,9 @@ function transformConversationResponse(response: any): Conversation {
     id: response.id,
     owner: response.owner,
     status: response.status,
+    purpose: response.purpose || 'authoring',
     frameId: response.frame_id,
+    projectId: response.project_id,
     messages: response.messages.map((m: any) => ({
       id: m.id,
       role: m.role,
@@ -82,11 +88,12 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  startConversation: async (owner) => {
+  startConversation: async (owner, purpose?, frameId?) => {
     set({ isLoading: true, error: null });
     try {
       const api = getAPIClient();
-      const response = await api.startConversation(owner);
+      const projectId = useProjectStore.getState().currentProjectId;
+      const response = await api.startConversation(owner, purpose, frameId, projectId ?? undefined);
       const conv = transformConversationResponse(response);
       set({ activeConversation: conv, isLoading: false, relevantKnowledge: [] });
       return conv;
@@ -103,7 +110,9 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
     const { activeConversation } = get();
     if (!activeConversation) return;
 
-    // Optimistically add user message
+    const wasSynthesized = activeConversation.status === 'synthesized';
+
+    // Optimistically add user message and reactivate if synthesized
     const userMsg: ConversationMessage = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -115,6 +124,7 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
       activeConversation: s.activeConversation
         ? {
             ...s.activeConversation,
+            status: wasSynthesized ? 'active' : s.activeConversation.status,
             messages: [...s.activeConversation.messages, userMsg],
           }
         : null,
@@ -164,11 +174,44 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
         isTyping: false,
       }));
     } catch (err) {
-      set({
+      // Mark the user message as failed so the user can retry
+      set((s) => ({
+        activeConversation: s.activeConversation
+          ? {
+              ...s.activeConversation,
+              messages: s.activeConversation.messages.map((m) =>
+                m.id === userMsg.id ? { ...m, status: 'failed' as const } : m
+              ),
+            }
+          : null,
         error: err instanceof Error ? err.message : 'Failed to send message',
         isTyping: false,
-      });
+      }));
     }
+  },
+
+  retryMessage: async (messageId) => {
+    const { activeConversation } = get();
+    if (!activeConversation) return;
+
+    const failedMsg = activeConversation.messages.find(
+      (m) => m.id === messageId && m.status === 'failed'
+    );
+    if (!failedMsg) return;
+
+    // Remove the failed message and re-send
+    set((s) => ({
+      activeConversation: s.activeConversation
+        ? {
+            ...s.activeConversation,
+            messages: s.activeConversation.messages.filter((m) => m.id !== messageId),
+          }
+        : null,
+      error: null,
+    }));
+
+    // Re-send through the normal sendMessage path
+    await get().sendMessage(failedMsg.content);
   },
 
   synthesizeFrame: async () => {
@@ -201,6 +244,25 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
     }
   },
 
+  summarizeReview: async () => {
+    const { activeConversation } = get();
+    if (!activeConversation) return null;
+
+    set({ isLoading: true, error: null });
+    try {
+      const api = getAPIClient();
+      await api.summarizeReview(activeConversation.id);
+      set({ isLoading: false });
+      return activeConversation.frameId;
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Failed to summarize review',
+        isLoading: false,
+      });
+      return null;
+    }
+  },
+
   loadConversation: async (id) => {
     set({ isLoading: true, error: null });
     try {
@@ -220,14 +282,20 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const api = getAPIClient();
+      const projectId = useProjectStore.getState().currentProjectId;
+      const filters: Record<string, string> = {};
+      if (owner) filters.owner = owner;
+      if (projectId) filters.project_id = projectId;
       const response = await api.listConversations(
-        owner ? { owner } : undefined
+        Object.keys(filters).length > 0 ? filters : undefined
       );
       const conversations: ConversationListItem[] = response.map((item) => ({
         id: item.id,
         owner: item.owner,
         status: item.status as any,
+        purpose: (item.purpose || 'authoring') as ConversationPurpose,
         frameId: item.frame_id,
+        projectId: item.project_id,
         messageCount: item.message_count,
         updatedAt: item.updated_at,
       }));

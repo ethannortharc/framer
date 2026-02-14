@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { KnowledgeEntry, KnowledgeCategory, KnowledgeSearchResult } from '@/types';
 import { getAPIClient } from '@/lib/api';
+import { useProjectStore } from './projectStore';
 
 interface KnowledgeStore {
   entries: KnowledgeEntry[];
@@ -35,7 +36,7 @@ function transformEntry(response: any): KnowledgeEntry {
     category: response.category,
     source: response.source,
     sourceId: response.source_id,
-    teamId: response.team_id,
+    projectId: response.project_id,
     author: response.author,
     tags: response.tags || [],
     createdAt: response.created_at,
@@ -57,8 +58,12 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const api = getAPIClient();
+      const projectId = useProjectStore.getState().currentProjectId;
+      const filters: Record<string, string> = {};
+      if (category) filters.category = category;
+      if (projectId) filters.project_id = projectId;
       const response = await api.listKnowledgeEntries(
-        category ? { category } : undefined
+        Object.keys(filters).length > 0 ? filters : undefined
       );
       const entries = response.map(transformEntry);
       set({ entries, isLoading: false });

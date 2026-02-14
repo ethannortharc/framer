@@ -19,6 +19,12 @@ class ConversationStatus(str, Enum):
     ABANDONED = "abandoned"
 
 
+class ConversationPurpose(str, Enum):
+    """Purpose of a conversation."""
+    AUTHORING = "authoring"
+    REVIEW = "review"
+
+
 # Regex pattern for valid conversation IDs: conv-YYYY-MM-DD-xxxxxx
 CONVERSATION_ID_PATTERN = re.compile(r"^conv-\d{4}-\d{2}-\d{2}-[a-zA-Z0-9]+$")
 
@@ -52,7 +58,9 @@ class ConversationMeta(BaseModel):
     """Metadata for a conversation (stored in meta.yaml)."""
     id: str
     frame_id: Optional[str] = None
+    project_id: Optional[str] = None
     owner: str
+    purpose: ConversationPurpose = ConversationPurpose.AUTHORING
     status: ConversationStatus = ConversationStatus.ACTIVE
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -70,22 +78,28 @@ class ConversationMeta(BaseModel):
         data = {
             "id": self.id,
             "owner": self.owner,
+            "purpose": self.purpose.value,
             "status": self.status.value,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
         if self.frame_id:
             data["frame_id"] = self.frame_id
+        if self.project_id:
+            data["project_id"] = self.project_id
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
     @classmethod
     def from_yaml(cls, yaml_str: str) -> "ConversationMeta":
         data = yaml.safe_load(yaml_str)
+        purpose_str = data.get("purpose", "authoring")
         return cls(
             id=data["id"],
             owner=data["owner"],
+            purpose=ConversationPurpose(purpose_str),
             status=ConversationStatus(data["status"]),
             frame_id=data.get("frame_id"),
+            project_id=data.get("project_id"),
             created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
                 if isinstance(data["created_at"], str) else data["created_at"],
             updated_at=datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))

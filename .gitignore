@@ -35,3 +35,6 @@ Thumbs.db
 .env*.local
 config/.env.local
 config/.env.*.local
+
+# AI config (contains API keys, managed via admin settings)
+config/ai.yaml

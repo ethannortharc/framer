@@ -40,7 +40,7 @@ services:
       - CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000}
       - DEBUG=${DEBUG:-false}
       # AI Configuration
-      - AI_CONFIG_PATH=/config/ai.yaml
+      - AI_CONFIG_PATH=/data/ai.yaml
       - AI_PROVIDER=${AI_PROVIDER:-}
       - AI_MODEL=${AI_MODEL:-}
       - AI_API_KEY=${AI_API_KEY:-}
@@ -57,7 +57,7 @@ services:
       pocketbase:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
       interval: ${HEALTHCHECK_INTERVAL:-10s}
       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
       retries: ${HEALTHCHECK_RETRIES:-5}

@@ -36,10 +36,28 @@ class GitService:
     def init_repo(self) -> Repo:
         """Initialize a git repository if not already initialized."""
         if self.is_repo():
-            return Repo(self.data_path)
+            repo = Repo(self.data_path)
+        else:
+            repo = Repo.init(self.data_path)
 
-        repo = Repo.init(self.data_path)
         self._repo = repo
+
+        # Ensure there is at least one commit (required for diff operations)
+        try:
+            repo.head.commit
+        except ValueError:
+            # No commits yet — create an initial commit
+            readme = self.data_path / ".gitkeep"
+            readme.write_text("")
+            repo.index.add([".gitkeep"])
+            author = Actor("Framer", "framer@system")
+            repo.index.commit("Initial data repository", author=author, committer=author)
+
+        # Set git config for the repo
+        with repo.config_writer() as config:
+            config.set_value("user", "name", "Framer")
+            config.set_value("user", "email", "framer@system")
+
         return repo
 
     def commit_changes(

@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from app.agents.config import AIConfig, parse_json_response
+from app.agents.config import AIConfig, parse_json_response, call_ai_with_retry
 from app.models.conversation import ConversationMessage, ConversationState
 
 
@@ -66,12 +66,14 @@ Current extracted content:
 {extracted_content}
 
 Generate a complete Frame with these four sections. Use the information from the conversation.
+Each section value should be **rich markdown** — use headings (###), bullet lists, bold emphasis, and numbered lists to make the content scannable and well-organized. Do NOT return plain prose; structure it for readability.
+
 Respond with JSON:
 {{
-  "problem_statement": "Clear, solution-free problem statement (max 30 words)",
-  "user_perspective": "Who is affected, their context, journey steps, and pain points",
-  "engineering_framing": "Key principles, invariants, trade-offs, and non-goals",
-  "validation_thinking": "Success signals and disconfirming evidence"
+  "problem_statement": "Clear, solution-free problem statement (max 30 words, plain text)",
+  "user_perspective": "Rich markdown: ### Who is affected\\n- bullet points\\n### User Journey\\n1. step one\\n### Pain Points\\n- ...",
+  "engineering_framing": "Rich markdown: ### Key Principles\\n1. ...\\n### Non-Goals & Trade-offs\\n- ...",
+  "validation_thinking": "Rich markdown: ### Success Signals\\n- ...\\n### Disconfirming Evidence\\n- ..."
 }}
 """
 
@@ -85,6 +87,44 @@ Respond with JSON:
   "frame_type": "bug" | "feature" | "exploration" | null,
   "confidence": 0.0-1.0,
   "reasoning": "brief explanation"
+}}
+"""
+
+
+REVIEW_SYSTEM_PROMPT = """You are a Review Coach helping an engineering reviewer evaluate a Frame (a structured problem description). The frame has four sections:
+1. **Problem Statement** — Clear, solution-free definition
+2. **User Perspective** — Who is affected, journey, pain points
+3. **Engineering Framing** — Principles, trade-offs, non-goals
+4. **Validation Thinking** — Success signals, falsification criteria
+
+The frame content is provided below. Help the reviewer:
+- Identify gaps, assumptions, or unclear areas in each section
+- Suggest questions the reviewer should ask the author
+- Evaluate whether the frame is ready for implementation
+- Be specific — reference actual content from the frame
+
+FRAME CONTENT:
+{frame_content}
+
+Respond conversationally. Ask ONE focused question at a time to guide the reviewer's thinking.
+"""
+
+SUMMARIZE_REVIEW_PROMPT = """Based on the review conversation below, produce a structured review summary.
+
+Review conversation:
+{messages}
+
+Respond with JSON:
+{{
+  "summary": "Overall review summary (2-3 sentences)",
+  "comments": [
+    {{
+      "section": "problem_statement" | "user_perspective" | "engineering_framing" | "validation_thinking",
+      "content": "Specific feedback for this section",
+      "severity": "info" | "suggestion" | "concern" | "blocker"
+    }}
+  ],
+  "recommendation": "approve" | "revise" | "rethink"
 }}
 """
 
@@ -112,10 +152,50 @@ class ConversationAgent:
     async def _call_ai(
         self, system: str, messages: list[dict[str, str]]
     ) -> dict[str, Any]:
-        if self.config.provider == "openai":
-            return await self._call_openai(system, messages)
+        async def _do_call():
+            if self.config.is_openai_compatible:
+                return await self._call_openai(system, messages)
+            elif self.config.provider == "anthropic":
+                return await self._call_anthropic(system, messages)
+            else:
+                raise ValueError(f"Unsupported provider: {self.config.provider}")
+
+        return await call_ai_with_retry(_do_call)
+
+    async def _call_ai_text(
+        self, system: str, messages: list[dict[str, str]]
+    ) -> str:
+        """Call AI and return raw text response (no JSON parsing)."""
+        import logging
+        logger = logging.getLogger("conversation_agent")
+
+        if self.config.is_openai_compatible:
+            client = self.config.create_openai_client()
+            all_messages = [{"role": "system", "content": system}] + messages
+            response = await client.chat.completions.create(
+                model=self.config.model,
+                messages=all_messages,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+            )
+            return response.choices[0].message.content or ""
         elif self.config.provider == "anthropic":
-            return await self._call_anthropic(system, messages)
+            client = self.config.create_anthropic_client()
+            response = await client.messages.create(
+                model=self.config.model,
+                max_tokens=self.config.max_tokens,
+                messages=messages,
+                system=system,
+            )
+            if not response.content:
+                raise ValueError("Empty content in AI response")
+            text = response.content[0].text
+            logger.warning(
+                f"Anthropic text response: stop_reason={response.stop_reason}, "
+                f"usage=in:{response.usage.input_tokens}/out:{response.usage.output_tokens}, "
+                f"preview={repr(text[:150])}"
+            )
+            return text
         else:
             raise ValueError(f"Unsupported provider: {self.config.provider}")
 
@@ -143,6 +223,8 @@ class ConversationAgent:
     async def _call_anthropic(
         self, system: str, messages: list[dict[str, str]]
     ) -> dict[str, Any]:
+        import logging
+        logger = logging.getLogger("conversation_agent")
         try:
             import anthropic as anthropic_lib
 
@@ -153,6 +235,13 @@ class ConversationAgent:
                 max_tokens=self.config.max_tokens,
                 messages=messages,
                 system=system,
+            )
+
+            logger.warning(
+                f"Anthropic raw response: stop_reason={response.stop_reason}, "
+                f"content_blocks={len(response.content)}, "
+                f"usage=in:{response.usage.input_tokens}/out:{response.usage.output_tokens}, "
+                f"content_preview={repr(response.content[0].text[:200]) if response.content else 'EMPTY'}"
             )
 
             if not response.content:
@@ -172,6 +261,9 @@ class ConversationAgent:
         knowledge_context: str = "",
     ) -> ConversationTurn:
         """Process a single conversation turn."""
+        import logging
+        logger = logging.getLogger("conversation_agent")
+
         system = SYSTEM_PROMPT
         if knowledge_context:
             system += f"\n\nRelevant team knowledge to consider:\n{knowledge_context}"
@@ -182,6 +274,16 @@ class ConversationAgent:
         for msg in messages:
             chat_messages.append({"role": msg.role, "content": msg.content})
         chat_messages.append({"role": "user", "content": user_message})
+
+        # Log payload size for debugging
+        system_chars = len(system)
+        msgs_chars = sum(len(m["content"]) for m in chat_messages)
+        total_chars = system_chars + msgs_chars
+        logger.warning(
+            f"AI payload: system={system_chars} chars, "
+            f"{len(chat_messages)} messages={msgs_chars} chars, "
+            f"total={total_chars} chars (~{total_chars // 4} tokens)"
+        )
 
         result = await self._call_ai(system, chat_messages)
 
@@ -194,10 +296,19 @@ class ConversationAgent:
             ready_to_synthesize=updated_state_data.get("ready_to_synthesize", state.ready_to_synthesize),
         )
 
+        # Normalize relevant_knowledge: LLM may return strings instead of dicts
+        raw_knowledge = result.get("relevant_knowledge", [])
+        knowledge = []
+        for item in raw_knowledge:
+            if isinstance(item, dict):
+                knowledge.append(item)
+            elif isinstance(item, str):
+                knowledge.append({"content": item})
+
         return ConversationTurn(
             response=result.get("response", "I need a moment to think about that."),
             updated_state=updated_state,
-            relevant_knowledge=result.get("relevant_knowledge", []),
+            relevant_knowledge=knowledge,
         )
 
     async def synthesize_frame(
@@ -222,6 +333,49 @@ class ConversationAgent:
             "user_perspective": result.get("user_perspective", ""),
             "engineering_framing": result.get("engineering_framing", ""),
             "validation_thinking": result.get("validation_thinking", ""),
+        }
+
+    async def process_review_turn(
+        self,
+        messages: list[ConversationMessage],
+        state: ConversationState,
+        user_message: str,
+        frame_content: str,
+    ) -> ConversationTurn:
+        """Process a review conversation turn with frame context."""
+        system = REVIEW_SYSTEM_PROMPT.format(frame_content=frame_content)
+
+        chat_messages = []
+        for msg in messages:
+            chat_messages.append({"role": msg.role, "content": msg.content})
+        chat_messages.append({"role": "user", "content": user_message})
+
+        # Review conversations are conversational (plain text), not JSON
+        response_text = await self._call_ai_text(system, chat_messages)
+
+        return ConversationTurn(
+            response=response_text,
+            updated_state=state,  # Review conversations don't track section coverage
+            relevant_knowledge=[],
+        )
+
+    async def summarize_review(
+        self, messages: list[ConversationMessage]
+    ) -> dict[str, Any]:
+        """Summarize a review conversation into structured feedback."""
+        messages_text = self._format_messages_for_prompt(messages)
+
+        prompt = SUMMARIZE_REVIEW_PROMPT.format(messages=messages_text)
+
+        result = await self._call_ai(
+            "You are a technical reviewer. Summarize the review conversation into structured feedback. Respond with JSON.",
+            [{"role": "user", "content": prompt}],
+        )
+
+        return {
+            "summary": result.get("summary", ""),
+            "comments": result.get("comments", []),
+            "recommendation": result.get("recommendation", "revise"),
         }
 
     async def detect_frame_type(

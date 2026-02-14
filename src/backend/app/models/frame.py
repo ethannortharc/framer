@@ -38,6 +38,7 @@ class FrameMeta(BaseModel):
     type: FrameType
     status: FrameStatus
     owner: str
+    project_id: Optional[str] = None
     reviewer: Optional[str] = None
     approver: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -47,6 +48,13 @@ class FrameMeta(BaseModel):
     ai_score: Optional[int] = None
     ai_evaluated_at: Optional[datetime] = None
     ai_breakdown: Optional[dict[str, int]] = None
+    ai_feedback: Optional[str] = None
+    ai_issues: Optional[list[str]] = None
+
+    # Review summary fields (optional)
+    review_summary: Optional[str] = None
+    review_comments: Optional[list[dict]] = None
+    review_recommendation: Optional[str] = None
 
     @field_validator("id")
     @classmethod
@@ -66,6 +74,8 @@ class FrameMeta(BaseModel):
             "status": self.status.value,
             "owner": self.owner,
         }
+        if self.project_id:
+            data["project_id"] = self.project_id
         if self.reviewer:
             data["reviewer"] = self.reviewer
         if self.approver:
@@ -77,6 +87,14 @@ class FrameMeta(BaseModel):
                 "score": self.ai_score,
                 "evaluated_at": self.ai_evaluated_at.isoformat() if self.ai_evaluated_at else None,
                 "breakdown": self.ai_breakdown,
+                "feedback": self.ai_feedback,
+                "issues": self.ai_issues,
+            }
+        if self.review_summary or self.review_comments or self.review_recommendation:
+            data["review"] = {
+                "summary": self.review_summary,
+                "comments": self.review_comments,
+                "recommendation": self.review_recommendation,
             }
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
@@ -89,17 +107,32 @@ class FrameMeta(BaseModel):
         ai_score = None
         ai_evaluated_at = None
         ai_breakdown = None
+        ai_feedback = None
+        ai_issues = None
         if "ai" in data:
             ai_data = data["ai"]
             ai_score = ai_data.get("score")
             ai_evaluated_at = ai_data.get("evaluated_at")
             ai_breakdown = ai_data.get("breakdown")
+            ai_feedback = ai_data.get("feedback")
+            ai_issues = ai_data.get("issues")
+
+        # Handle review fields if present
+        review_summary = None
+        review_comments = None
+        review_recommendation = None
+        if "review" in data:
+            review_data = data["review"]
+            review_summary = review_data.get("summary")
+            review_comments = review_data.get("comments")
+            review_recommendation = review_data.get("recommendation")
 
         return cls(
             id=data["id"],
             type=FrameType(data["type"]),
             status=FrameStatus(data["status"]),
             owner=data["owner"],
+            project_id=data.get("project_id"),
             reviewer=data.get("reviewer"),
             approver=data.get("approver"),
             created_at=datetime.fromisoformat(data["created_at"].replace("Z", "+00:00"))
@@ -109,6 +142,11 @@ class FrameMeta(BaseModel):
             ai_score=ai_score,
             ai_evaluated_at=ai_evaluated_at,
             ai_breakdown=ai_breakdown,
+            ai_feedback=ai_feedback,
+            ai_issues=ai_issues,
+            review_summary=review_summary,
+            review_comments=review_comments,
+            review_recommendation=review_recommendation,
         )
 
 

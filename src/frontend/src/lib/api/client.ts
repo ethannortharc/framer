@@ -57,7 +57,16 @@ export interface FrameResponse {
   meta: {
     created_at: string;
     updated_at: string;
+    project_id: string | null;
+    reviewer: string | null;
+    approver: string | null;
     ai_score: number | null;
+    ai_breakdown: Record<string, number> | null;
+    ai_feedback: string | null;
+    ai_issues: string[] | null;
+    review_summary: string | null;
+    review_comments: Array<{ section: string; content: string; severity: string }> | null;
+    review_recommendation: string | null;
   };
 }
 
@@ -66,6 +75,7 @@ export interface FrameListItem {
   type: string;
   status: string;
   owner: string;
+  project_id?: string;
   updated_at: string;
 }
 
@@ -78,21 +88,10 @@ export interface CommentResponse {
 }
 
 export interface AIEvaluateResponse {
-  frame_id: string;
   score: number;
-  breakdown: {
-    problem_clarity: number;
-    user_perspective: number;
-    engineering_framing: number;
-    validation_thinking: number;
-    internal_consistency: number;
-  };
-  issues: Array<{
-    section: string;
-    severity: string;
-    message: string;
-  }>;
-  summary: string;
+  breakdown: Record<string, number>;
+  feedback: string;
+  issues: string[];
 }
 
 export interface AIGenerateResponse {
@@ -105,12 +104,22 @@ export interface AIChatResponse {
   suggestion?: string;
 }
 
+// Frame history types
+export interface FrameHistoryEntry {
+  hash: string;
+  message: string;
+  author_name: string;
+  timestamp: string;
+}
+
 // Conversation API response types
 export interface ConversationResponse {
   id: string;
   owner: string;
   status: string;
+  purpose: string;
   frame_id: string | null;
+  project_id?: string;
   messages: Array<{
     id: string;
     role: string;
@@ -132,7 +141,9 @@ export interface ConversationListItemResponse {
   id: string;
   owner: string;
   status: string;
+  purpose: string;
   frame_id: string | null;
+  project_id?: string;
   message_count: number;
   updated_at: string;
 }
@@ -174,7 +185,7 @@ export interface KnowledgeEntryResponse {
   category: string;
   source: string;
   source_id?: string;
-  team_id?: string;
+  project_id?: string;
   author: string;
   tags: string[];
   created_at: string;
@@ -279,10 +290,11 @@ export class FramerAPIClient {
   /**
    * List all frames with optional filters
    */
-  async listFrames(filters?: { status?: string; owner?: string }): Promise<FrameListItem[]> {
+  async listFrames(filters?: { status?: string; owner?: string; project_id?: string }): Promise<FrameListItem[]> {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.owner) params.append('owner', filters.owner);
+    if (filters?.project_id) params.append('project_id', filters.project_id);
 
     const query = params.toString();
     return this.request<FrameListItem[]>(`/api/frames${query ? `?${query}` : ''}`);
@@ -301,6 +313,7 @@ export class FramerAPIClient {
   async createFrame(data: {
     type: FrameType;
     owner: string;
+    project_id?: string;
     content?: {
       problem_statement?: string;
       user_perspective?: string;
@@ -348,6 +361,44 @@ export class FramerAPIClient {
     });
   }
 
+  // ==================== Feedback Endpoint ====================
+
+  /**
+   * Submit implementation feedback for a frame
+   */
+  async submitFeedback(frameId: string, data: {
+    outcome: string;
+    summary: string;
+    lessons_learned: string[];
+  }): Promise<FrameResponse> {
+    return this.request<FrameResponse>(`/api/frames/${frameId}/feedback`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  // ==================== User Endpoints ====================
+
+  /**
+   * List users from PocketBase
+   */
+  async listUsers(): Promise<Array<{ id: string; name: string; email: string }>> {
+    return this.request<Array<{ id: string; name: string; email: string }>>('/api/users');
+  }
+
+  /**
+   * Update frame metadata (reviewer, approver)
+   */
+  async updateFrameMeta(frameId: string, data: {
+    reviewer?: string;
+    approver?: string;
+  }): Promise<FrameResponse> {
+    return this.request<FrameResponse>(`/api/frames/${frameId}/meta`, {
+      method: 'PATCH',
+      body: data,
+    });
+  }
+
   // ==================== Comment Endpoints ====================
 
   /**
@@ -371,27 +422,18 @@ export class FramerAPIClient {
     return this.request<CommentResponse[]>(`/api/frames/${frameId}/comments`);
   }
 
-  // ==================== Template Endpoints ====================
+  // ==================== Frame History ====================
 
   /**
-   * List all templates
+   * Get version history for a frame
    */
-  async listTemplates(): Promise<Array<{ id: string; name: string; description: string }>> {
-    return this.request(`/api/templates`);
-  }
-
-  /**
-   * Get a template by ID
-   */
-  async getTemplate(id: string): Promise<{
-    id: string;
-    name: string;
-    description: string;
-    sections: unknown[];
-    questionnaire: unknown;
-    prompt_templates: Record<string, string>;
-  }> {
-    return this.request(`/api/templates/${id}`);
+  async getFrameHistory(frameId: string, limit?: number): Promise<FrameHistoryEntry[]> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', String(limit));
+    const query = params.toString();
+    return this.request<FrameHistoryEntry[]>(
+      `/api/frames/${frameId}/history${query ? `?${query}` : ''}`
+    );
   }
 
   // ==================== AI Endpoints ====================
@@ -400,9 +442,8 @@ export class FramerAPIClient {
    * Evaluate a frame with AI
    */
   async evaluateFrame(frameId: string): Promise<AIEvaluateResponse> {
-    return this.request<AIEvaluateResponse>('/api/ai/evaluate', {
+    return this.request<AIEvaluateResponse>(`/api/frames/${frameId}/ai/evaluate`, {
       method: 'POST',
-      body: { frame_id: frameId },
     });
   }
 
@@ -442,10 +483,14 @@ export class FramerAPIClient {
   /**
    * Start a new conversation
    */
-  async startConversation(owner: string): Promise<ConversationResponse> {
+  async startConversation(owner: string, purpose?: string, frameId?: string, projectId?: string): Promise<ConversationResponse> {
+    const body: Record<string, string> = { owner };
+    if (purpose) body.purpose = purpose;
+    if (frameId) body.frame_id = frameId;
+    if (projectId) body.project_id = projectId;
     return this.request<ConversationResponse>('/api/conversations', {
       method: 'POST',
-      body: { owner },
+      body,
     });
   }
 
@@ -455,10 +500,14 @@ export class FramerAPIClient {
   async listConversations(filters?: {
     owner?: string;
     status?: string;
+    frame_id?: string;
+    project_id?: string;
   }): Promise<ConversationListItemResponse[]> {
     const params = new URLSearchParams();
     if (filters?.owner) params.append('owner', filters.owner);
     if (filters?.status) params.append('conv_status', filters.status);
+    if (filters?.frame_id) params.append('frame_id', filters.frame_id);
+    if (filters?.project_id) params.append('project_id', filters.project_id);
     const query = params.toString();
     return this.request<ConversationListItemResponse[]>(
       `/api/conversations${query ? `?${query}` : ''}`
@@ -499,6 +548,15 @@ export class FramerAPIClient {
   }
 
   /**
+   * Summarize a review conversation
+   */
+  async summarizeReview(convId: string): Promise<{ summary: string; comments: Array<{ section: string; content: string; severity: string }>; recommendation: string }> {
+    return this.request(`/api/conversations/${convId}/summarize-review`, {
+      method: 'POST',
+    });
+  }
+
+  /**
    * Delete a conversation
    */
   async deleteConversation(id: string): Promise<void> {
@@ -518,6 +576,7 @@ export class FramerAPIClient {
     category: string;
     source?: string;
     author: string;
+    project_id?: string;
     tags?: string[];
   }): Promise<KnowledgeEntryResponse> {
     return this.request<KnowledgeEntryResponse>('/api/knowledge', {
@@ -531,12 +590,12 @@ export class FramerAPIClient {
    */
   async listKnowledgeEntries(filters?: {
     category?: string;
-    team_id?: string;
+    project_id?: string;
     tags?: string;
   }): Promise<KnowledgeEntryResponse[]> {
     const params = new URLSearchParams();
     if (filters?.category) params.append('category', filters.category);
-    if (filters?.team_id) params.append('team_id', filters.team_id);
+    if (filters?.project_id) params.append('project_id', filters.project_id);
     if (filters?.tags) params.append('tags', filters.tags);
     const query = params.toString();
     return this.request<KnowledgeEntryResponse[]>(
@@ -607,6 +666,40 @@ export class FramerAPIClient {
       method: 'POST',
       body: data,
     });
+  }
+
+  // ==================== Team/Project Endpoints ====================
+
+  async listTeams(): Promise<Array<{ id: string; name: string; description?: string }>> {
+    return this.request<Array<{ id: string; name: string; description?: string }>>('/api/teams');
+  }
+
+  async createTeam(data: { name: string; description?: string }): Promise<{ id: string; name: string; description?: string }> {
+    return this.request<{ id: string; name: string; description?: string }>('/api/teams', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async listTeamMembers(teamId: string): Promise<Array<{ id: string; team: string; user: string; role?: string }>> {
+    return this.request<Array<{ id: string; team: string; user: string; role?: string }>>(`/api/teams/${teamId}/members`);
+  }
+
+  async addTeamMember(teamId: string, userId: string, role?: string): Promise<{ id: string; team: string; user: string; role?: string }> {
+    return this.request<{ id: string; team: string; user: string; role?: string }>(`/api/teams/${teamId}/members`, {
+      method: 'POST',
+      body: { user_id: userId, role },
+    });
+  }
+
+  async removeTeamMember(teamId: string, memberId: string): Promise<void> {
+    return this.request<void>(`/api/teams/${teamId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getUserTeams(userId: string): Promise<Array<{ id: string; name: string; description?: string }>> {
+    return this.request<Array<{ id: string; name: string; description?: string }>>(`/api/users/${userId}/teams`);
   }
 }
 
