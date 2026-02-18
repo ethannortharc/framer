@@ -1,0 +1,97 @@
+Implement the following plan:
+
+# Add Preview Button for Conversation Frame
+
+## Context
+Currently, when a user clicks "Synthesize Frame" on the conversation page, it immediately creates/updates a frame and navigates away. The user wants to preview what the synthesized frame would look like before committing — a lightweight way to check the AI output and decide whether to continue the conversation or finalize.
+
+## Approach
+Add a new backend preview endpoint that runs the AI synthesis without persisting, and a frontend "Preview" button that opens a modal showing the rendered frame content.
+
+## Changes
+
+### 1. Backend: New preview endpoint
+**File:** `src/backend/app/api/conversations.py`
+
+- Add `PreviewResponse` model (just `content: dict[str, str]`, no `frame_id`)
+- Add `POST /{conv_id}/preview` endpoint:
+  - Validates conversation exists and is active or synthesized
+  - Calls existing `ConversationAgent.synthesize_frame(messages, state)` — same AI call as synthesize
+  - Returns the content dict directly — does NOT create frame, git commit, evaluate, or store embeddings
+- Place the route before the synthesize route (same auth dependencies)
+
+### 2. Frontend: API client method
+**File:** `src/frontend/src/lib/api/client.ts`
+
+- Add `PreviewResponse` interface: `{ content: Record<string, string> }`
+- Add `previewFrame(convId: string): Promise<PreviewResponse>` method that POSTs to `/api/conversations/{convId}/preview`
+
+### 3. Frontend: Conversation store action
+**File:** `src/frontend/src/store/conversationStore.ts`
+
+- Add `previewContent` state field (`Record<string, string> | null`)
+- Add `isPreviewing` state field (`boolean`)
+- Add `previewFrame()` action: calls `api.previewFrame()`, stores result in `previewContent`
+- Add `clearPreview()` action: sets `previewContent` to null
+
+### 4. Frontend: Preview button + modal on conversation page
+**File:** `src/frontend/src/app/new/page.tsx`
+
+- Import `Eye` icon from lucide-react
+- Add "Preview" button (outline variant) between the coverage panel and the synthesize button in the authoring mode action area
+- Same disabled condition as synthesize (needs >=2 messages, not loading)
+- On click: calls `previewFrame()` store action
+- Add a full-screen modal overlay (matching existing modal patterns in the codebase — backdrop blur, centered card):
+  - Header: "Frame Preview" with close button
+  - Body: Renders the 4 sections as markdown using `MarkdownContent` (same rendering as `FrameDocumentView`)
+  - Footer: "Close" button (outline) + "Synthesize Frame" button (primary with Sparkles icon)
+  - Clicking "Synthesize" calls `handleSynthesize` (existing) and closes the modal
+
+## Files Modified
+1. `src/backend/app/api/conversations.py` — new endpoint + response model
+2. `src/frontend/src/lib/api/client.ts` — new API method + type
+3. `src/frontend/src/store/conversationStore.ts` — new state + actions
+4. `src/frontend/src/app/new/page.tsx` — preview button + modal UI
+
+## Verification
+1. Rebuild and deploy backend container
+2. Test preview API: `curl -X POST http://localhost:8000/api/conversations/{id}/preview`
+3. Rebuild and deploy frontend container
+4. Verify the Preview button appears next to Synthesize, opens modal with rendered content, and Synthesize from modal works
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+
+---
+
+if the preview exist and there is no new conversation happend, the generated frame should be able to use for frame update and next time preview, right? another thing, which solution are you using for the knowledge generation?
+
+---
+
+failed to generate preview, please check the logs to see what happened, and please also tell me which model you are using for generate the embeeding vector
+
+---
+
+<task-notification>
+<task-id>b39ad8b</task-id>
+<output-file>REDACTED.output</output-file>
+<status>completed</status>
+<summary>Background command "Test preview with the conversation visible in logs" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: REDACTED.output
+
+---
+
+what's the difference between bge-m3 and all-minilm-l6-v2, about the resource usage and the main features.
+
+---
+
+I see, the lenght of the generated content is impacted by different models, right? is that able to generate more longer knowledge through minilm-l6-v2?
+
+---
+
+please help to update the README.md and help to screenshot some picture to help the user understand what the framer could do, they will be committed to github later
+
+---
+
+ok, commit and push to github

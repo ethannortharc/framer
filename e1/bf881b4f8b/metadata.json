@@ -3,16 +3,26 @@
   "checkpoint_id": "e1bf881b4f8b",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 4,
+  "checkpoints_count": 8,
   "files_touched": [
+    "README.md",
+    "docs/screenshots/01-login.png",
+    "docs/screenshots/02-dashboard.png",
+    "docs/screenshots/03-frame-detail.png",
+    "docs/screenshots/04-ai-evaluation.png",
+    "docs/screenshots/05-conversation.png",
+    "docs/screenshots/06-knowledge.png",
+    "docs/screenshots/07-admin-login.png",
     "src/backend/app/agents/config.py",
     "src/backend/app/agents/conversation.py",
     "src/backend/app/api/conversations.py",
     "src/backend/app/api/frames.py",
     "src/backend/app/services/git_service.py",
     "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/new/page.tsx",
     "src/frontend/src/components/conversation/CoveragePanel.tsx",
-    "src/frontend/src/lib/api/client.ts"
+    "src/frontend/src/lib/api/client.ts",
+    "src/frontend/src/store/conversationStore.ts"
   ],
   "sessions": [
     {
@@ -21,13 +31,20 @@
       "context": "/e1/bf881b4f8b/0/context.md",
       "content_hash": "/e1/bf881b4f8b/0/content_hash.txt",
       "prompt": "/e1/bf881b4f8b/0/prompt.txt"
+    },
+    {
+      "metadata": "/e1/bf881b4f8b/1/metadata.json",
+      "transcript": "/e1/bf881b4f8b/1/full.jsonl",
+      "context": "/e1/bf881b4f8b/1/context.md",
+      "content_hash": "/e1/bf881b4f8b/1/content_hash.txt",
+      "prompt": "/e1/bf881b4f8b/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 4571,
-    "cache_creation_tokens": 321977,
-    "cache_read_tokens": 15776465,
-    "output_tokens": 10425,
-    "api_call_count": 138
+    "input_tokens": 4740,
+    "cache_creation_tokens": 551590,
+    "cache_read_tokens": 29769099,
+    "output_tokens": 16845,
+    "api_call_count": 279
   }
 }
