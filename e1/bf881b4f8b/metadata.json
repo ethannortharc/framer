@@ -1,0 +1,33 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "e1bf881b4f8b",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "src/backend/app/agents/config.py",
+    "src/backend/app/agents/conversation.py",
+    "src/backend/app/api/conversations.py",
+    "src/backend/app/api/frames.py",
+    "src/backend/app/services/git_service.py",
+    "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/components/conversation/CoveragePanel.tsx",
+    "src/frontend/src/lib/api/client.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e1/bf881b4f8b/0/metadata.json",
+      "transcript": "/e1/bf881b4f8b/0/full.jsonl",
+      "context": "/e1/bf881b4f8b/0/context.md",
+      "content_hash": "/e1/bf881b4f8b/0/content_hash.txt",
+      "prompt": "/e1/bf881b4f8b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 4571,
+    "cache_creation_tokens": 321977,
+    "cache_read_tokens": 15776465,
+    "output_tokens": 10425,
+    "api_call_count": 138
+  }
+}

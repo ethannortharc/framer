@@ -1,0 +1,330 @@
+the history of the framer should be check the diff, so it's better to use git to maintain the diff, I can see the version of the frame, but no diff. And the editor is currently the id, not the name, please also change to name. The ai of the convesation is not able to work, please check the logs and see what happened and fix it.
+
+---
+
+the history of the framer should be check the diff, so it's better to use git to maintain the diff, I can see the version of the frame, but no diff. And the editor is currently the id, not the name, please also change to name. The ai of the convesation is not able to work, please check the logs and see what happened and fix it.
+
+---
+
+the view history please support expand and collapse, or other way to collapse, otherwise it will become very long if the history is a lot. please also make sure the ai evaluation in the frame main page and the in the conversation use the same way, currently the score and the result is different.
+
+---
+
+issue 2 is still there, please check again,the ai in conversation evaluation got 57 score but the ai evaluation in the frame got 93 score.
+
+---
+
+the conversation AI is failed, maybe you are correct conversation AI will evaluation with the conversation agent and check the coverage, and the evaluation ai will just check the wroten frame, it's different, if so please still use 2 agents for different purposes, but the UI please help to optimize as well to avoid the confusion.
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me go through the conversation chronologically to capture all important details.
+
+**Message 1 (User):** Three requests:
+1. Frame history should show diffs using git
+2. Editor field shows ID instead of name, should show name
+3. AI conversation is not working, check logs and fix
+
+**My approach:** Launched parallel investigation agents to check Docker logs, explore frame history/versioning code, and explore conversation agent code.
+
+**Key findings:**
+- AI conversation: `anthropic.APITimeoutError` - timeout when calling custom endpoint (provider: anthropic, model: forti-coder, timeout: 30000s)
+- Frame history: GitService has commit history but NO diff functionality
+- Editor: `frame.reviewer` stores user IDs, displayed as raw IDs. Git commits always use "Framer" as author.
+
+**Files read:**
+- config/ai.yaml - AI config (provider: anthropic, model: forti-coder, timeout: 30000, ssl_verify: false)
+- src/backend/app/agents/config.py - AIConfig, call_ai_with_retry, client creation
+- src/backend/app/services/git_service.py - GitService with commit/history but no diff
+- src/frontend/src/app/frame/[id]/page.tsx - Frame detail page
+- docker-compose.yml - Docker setup
+- src/backend/app/api/frames.py - Frames API endpoints
+- src/backend/app/api/conversations.py - Conversations API
+- config/.env.dev - Environment config
+- src/frontend/src/lib/api/client.ts - Frontend API client
+- src/backend/app/agents/conversation.py - Conversation agent
+- src/backend/app/api/users.py - User/team proxy API
+
+**Changes made (Round 1):**
+
+1. **Fix 1: AI timeout retry** 
+   - `src/backend/app/agents/config.py` - Added timeout/connection errors to retryable list in `call_ai_with_retry`
+   - `src/backend/app/agents/conversation.py` - Removed RuntimeError wrapping of APITimeoutError/APIConnectionError in `_call_anthropic`. Wrapped `_call_ai_text` with `call_ai_with_retry`.
+
+2. **Fix 2: Frame history diffs (backend)**
+   - `src/backend/app/services/git_service.py` - Added `get_commit_diff(commit_hash)` method, imported `NULL_TREE`
+   - `src/backend/app/api/frames.py` - Added `diff` field to `FrameHistoryEntry`, updated history endpoint to include diffs with `include_diff` query param
+
+3. **Fix 3: Frame history diffs (frontend)**
+   - `src/frontend/src/lib/api/client.ts` - Added `diff?` field to `FrameHistoryEntry`
+   - `src/frontend/src/app/frame/[id]/page.tsx` - Expandable diff UI with syntax highlighting
+
+4. **Fix 4: Editor name instead of ID**
+   - `src/frontend/src/app/frame/[id]/page.tsx` - Added `userMap` state, fetch users on mount, resolve reviewer ID to name
+   - `src/backend/app/api/frames.py` - Updated `_git_commit` to accept `author_name`/`author_email` params
+
+Built and deployed containers. Verified API returns diffs. Tried to test in browser but couldn't log in.
+
+**Message 2 (User):** Two requests:
+1. Version history should support expand/collapse (too long if many entries)
+2. AI evaluation on frame page and conversation should use the same way - currently scores are different
+
+**My approach:** Explored evaluator agent and conversation coverage panel.
+
+**Key findings:**
+- Frame evaluation: EvaluatorAgent gives 0-100 score with 4 categories at 0-25 each
+- Conversation: CoveragePanel shows 0-100% from sections_covered (0.0-1.0), completely different metric
+
+**Changes made (Round 2):**
+
+1. **Collapsible version history:**
+   - `src/frontend/src/app/frame/[id]/page.tsx` - Added `isHistoryExpanded` state, show only 3 entries by default, "Show X more versions"/"Show less" toggle, max-height 400px on diff panels
+
+2. **Auto-evaluate after synthesis:**
+   - `src/backend/app/api/conversations.py` - After synthesize, auto-run EvaluatorAgent on frame, save results, AND sync scores back to conversation state (normalize 0-25 to 0.0-1.0)
+   - Added import of `EVALUATE_PROMPT` from `app.api.ai`
+
+Built and deployed.
+
+**Message 3 (User):** "issue 2 is still there, please check again, the ai in conversation evaluation got 57 score but the ai evaluation in the frame got 93 score."
+
+**My approach:** The scores still differ because the conversation coverage was synced after synthesis, but the user saw the pre-synthesis coverage of 57%. Also the sync happened but the fundamental issue is these ARE different metrics.
+
+**Changes made (Round 3):**
+- Updated conversations.py to sync evaluator breakdown scores back to conversation state after synthesis
+- Normalized 0-25 breakdown to 0.0-1.0 coverage values
+
+**Message 4 (User):** "the conversation AI is failed, maybe you are correct conversation AI will evaluation with the conversation agent and check the coverage, and the evaluation ai will just check the written frame, it's different, if so please still use 2 agents for different purposes, but the UI please help to optimize as well to avoid the confusion."
+
+User agrees the two systems serve different purposes. Wants:
+1. Keep both systems separate
+2. Fix the conversation AI failure
+3. Optimize UI to avoid confusion between the two metrics
+
+**My investigation found:**
+1. `AttributeError: property 'status' of 'Conversation' object has no setter` - line 200: `conv.status = ConversationStatus.ACTIVE`
+2. `JSONDecodeError` - AI model (forti-coder) returns plain text instead of JSON. The response content is good conversational text but not JSON.
+
+**Changes made (Round 4):**
+
+1. **Fix status setter:** `conv.status = ConversationStatus.ACTIVE` → `conv.meta.status = ConversationStatus.ACTIVE`
+
+2. **Fix JSON fallback in conversation agent:** In `process_turn`, wrapped `_call_ai` in try/except for ValueError/JSONDecodeError. On failure, falls back to `_call_ai_text` (plain text mode) and returns the text as response with state unchanged.
+
+3. **Reverted score syncing:** Removed the ConversationState sync code from synthesize_frame endpoint. Kept auto-evaluate but without syncing back.
+
+4. **UI improvements:**
+   - `CoveragePanel.tsx` - Changed header to "Discussion Coverage" with subtitle "How much of each topic has been discussed"
+   - `frame/[id]/page.tsx` - Changed AI evaluation header to "Content Quality Score" with subtitle "AI assessment of the written frame content"
+
+Built and deployed. Backend started cleanly. Verified conversations endpoint returns 200.
+
+Found active conversation `conv-2026-02-13-6dd27d` to test with but hadn't tested yet when summary was requested.
+
+Summary:
+1. Primary Request and Intent:
+   The user made three initial requests:
+   - **Frame history diffs**: The frame version history should show actual diffs (git-style) between versions, not just commit messages
+   - **Editor name display**: The reviewer/editor field on the frame page shows raw PocketBase user IDs instead of human-readable names
+   - **AI conversation broken**: The conversation AI feature is not working; user asked to check logs and fix
+   
+   Follow-up requests:
+   - **Collapsible version history**: History section gets too long with many entries; needs expand/collapse
+   - **AI evaluation consistency**: The conversation page shows "coverage" (57%) while the frame page shows "AI evaluation" (93/100) — user found this confusing
+   - **Keep both systems separate**: User confirmed the two scoring systems serve different purposes (discussion coverage vs written content quality) and wants both kept but with clearer UI to avoid confusion. Also, the conversation AI was completely failing.
+
+2. Key Technical Concepts:
+   - **FastAPI backend** with factory pattern (`create_app()`), file-based storage (dir-per-entity with YAML/JSON/MD)
+   - **GitPython** for frame version control — commits per frame change, `get_frame_history()` returns commit list
+   - **Two separate AI evaluation systems**:
+     - `ConversationAgent` tracks "discussion coverage" (0.0-1.0 per section) during chat
+     - `EvaluatorAgent` scores "content quality" (0-100, breakdown 0-25 per category) on written frames
+   - **Provider-agnostic AI**: Supports OpenAI-compatible (openai/minimax/glm) and Anthropic providers
+   - **Custom AI endpoint**: `forti-coder` model on Anthropic provider with SSL verify disabled — a self-hosted LLM that doesn't reliably return JSON
+   - **PocketBase** for user authentication and team management
+   - **Next.js App Router** frontend with Zustand stores, snake_case↔camelCase transforms
+   - **Docker Compose** deployment with three containers (backend, frontend, pocketbase)
+
+3. Files and Code Sections:
+
+   - **`src/backend/app/agents/config.py`** — AI configuration and retry logic
+     - Added timeout/connection errors to retryable error list in `call_ai_with_retry`
+     ```python
+     is_retryable = (
+         "Empty" in error_msg
+         or "No JSON" in error_msg
+         or "Expecting value" in error_msg
+         or "JSONDecodeError" in error_type
+         # Retry on timeout and connection errors
+         or "Timeout" in error_type
+         or "timeout" in error_msg.lower()
+         or "ConnectionError" in error_type
+         or "connection" in error_msg.lower()
+     )
+     ```
+
+   - **`src/backend/app/agents/conversation.py`** — Conversation AI agent
+     - Removed RuntimeError wrapping of `APITimeoutError`/`APIConnectionError` (was bypassing retry)
+     - Wrapped `_call_ai_text` with `call_ai_with_retry` for review conversations
+     - **Critical fix**: Added JSON fallback in `process_turn` — when AI returns plain text instead of JSON, falls back to text mode with state unchanged:
+     ```python
+     try:
+         result = await self._call_ai(system, chat_messages)
+     except (ValueError, json.JSONDecodeError) as e:
+         logger.warning(f"JSON parse failed, falling back to text mode: {e}")
+         text_response = await self._call_ai_text(system, chat_messages)
+         return ConversationTurn(
+             response=text_response,
+             updated_state=state,  # keep state unchanged
+             relevant_knowledge=[],
+         )
+     ```
+
+   - **`src/backend/app/api/conversations.py`** — Conversations API endpoints
+     - Fixed status setter bug: `conv.status = ConversationStatus.ACTIVE` → `conv.meta.status = ConversationStatus.ACTIVE`
+     - Added import: `from app.api.ai import EVALUATE_PROMPT`
+     - Added auto-evaluation after frame synthesis using EvaluatorAgent (best-effort, failures logged but don't block):
+     ```python
+     try:
+         from app.agents.evaluator import EvaluatorAgent
+         evaluator = EvaluatorAgent(prompt_template=EVALUATE_PROMPT, config=config)
+         eval_content = (
+             f"# Problem Statement\n{content.get('problem_statement', '')}\n\n"
+             f"## User Perspective\n{content.get('user_perspective', '')}\n\n"
+             f"## Engineering Framing\n{content.get('engineering_framing', '')}\n\n"
+             f"## Validation Thinking\n{content.get('validation_thinking', '')}\n"
+         )
+         eval_result = await evaluator.evaluate(frame_content=eval_content)
+         frame_service.save_evaluation(
+             frame_id=frame.id,
+             score=eval_result["score"],
+             breakdown=eval_result["breakdown"],
+             feedback=eval_result["feedback"],
+             issues=eval_result["issues"],
+         )
+     except Exception:
+         import logging
+         logging.getLogger("conversations_api").warning(
+             "Auto-evaluation after synthesis failed for frame %s", frame.id, exc_info=True
+         )
+     ```
+     - Score syncing (normalizing evaluator 0-25 to conversation 0.0-1.0) was added then REVERTED per user feedback
+
+   - **`src/backend/app/services/git_service.py`** — Git version control service
+     - Added `from git import ... NULL_TREE`
+     - Added `get_commit_diff(commit_hash)` method:
+     ```python
+     def get_commit_diff(self, commit_hash: str) -> str:
+         if not self.is_repo():
+             return ""
+         repo = self.repo
+         try:
+             commit = repo.commit(commit_hash)
+             if commit.parents:
+                 parent = commit.parents[0]
+                 diff = parent.diff(commit, create_patch=True)
+             else:
+                 diff = commit.diff(NULL_TREE, create_patch=True)
+             lines = []
+             for d in diff:
+                 header = f"--- {d.a_path or '/dev/null'}\n+++ {d.b_path or '/dev/null'}"
+                 lines.append(header)
+                 if d.diff:
+                     patch = d.diff.decode("utf-8", errors="replace")
+                     lines.append(patch)
+             return "\n".join(lines)
+         except Exception:
+             return ""
+     ```
+
+   - **`src/backend/app/api/frames.py`** — Frames API endpoints
+     - Added `diff: Optional[str] = None` to `FrameHistoryEntry` model
+     - Updated `_git_commit` to accept `author_name`/`author_email` params
+     - Updated history endpoint to include diffs with `include_diff` query param (defaults True)
+
+   - **`src/frontend/src/lib/api/client.ts`** — Frontend API client
+     - Added `diff?: string` to `FrameHistoryEntry` interface
+
+   - **`src/frontend/src/app/frame/[id]/page.tsx`** — Frame detail page (MAJOR changes)
+     - Added state: `userMap`, `expandedHistoryHash`, `isHistoryExpanded`
+     - Added useEffect to fetch users and build ID→name map
+     - Reviewer display: `{userMap[frame.reviewer] || frame.reviewer}`
+     - History author display: `{userMap[entry.author_name] || entry.author_name}`
+     - Collapsible version history: shows 3 entries by default with "Show X more versions" toggle
+     - Expandable diff per entry with syntax-highlighted display (green/red/blue)
+     - Diff panel max-height 400px with scroll
+     - AI evaluation header changed to "Content Quality Score" with subtitle "AI assessment of the written frame content"
+
+   - **`src/frontend/src/components/conversation/CoveragePanel.tsx`** — Conversation coverage sidebar
+     - Header changed from "Coverage" to "Discussion Coverage"
+     - Added subtitle: "How much of each topic has been discussed"
+
+   - **`config/ai.yaml`** — AI configuration (READ ONLY, not modified)
+     - provider: anthropic, model: forti-coder, timeout: 30000, ssl_verify: false
+
+   - **`src/backend/app/agents/evaluator.py`** — EvaluatorAgent (READ ONLY)
+     - Scores 0-100 with 4 categories at 0-25, uses EVALUATE_PROMPT template
+
+4. Errors and Fixes:
+   - **`anthropic.APITimeoutError`**: AI endpoint timing out
+     - Fixed by adding timeout/connection errors to retryable list in `call_ai_with_retry`
+     - Removed RuntimeError wrapping in `_call_anthropic` that was bypassing retry
+   
+   - **`JSONDecodeError: Expecting value: line 1 column 1`**: forti-coder model returns plain conversational text instead of JSON
+     - The Anthropic response is good text ("That makes sense—using historical boundary weeks...") but not JSON
+     - Fixed by adding try/except fallback in `process_turn`: if JSON parse fails, re-call as plain text via `_call_ai_text` and return response with state unchanged
+   
+   - **`AttributeError: property 'status' of 'Conversation' object has no setter`**: 
+     - `Conversation.status` is a read-only property returning `self.meta.status`
+     - Fixed by changing `conv.status = ConversationStatus.ACTIVE` to `conv.meta.status = ConversationStatus.ACTIVE`
+   
+   - **Score inconsistency between conversation (57%) and frame evaluation (93/100)**:
+     - Initially tried to sync evaluator scores back to conversation state (normalize 0-25 to 0.0-1.0)
+     - User feedback: these are legitimately different metrics, keep them separate, just improve UI labels
+     - Reverted score syncing, updated UI labels instead ("Discussion Coverage" vs "Content Quality Score")
+   
+   - **Login failure during testing**: PocketBase users had `emailVisibility: false`, couldn't determine correct credentials. Verified changes via API calls instead.
+
+5. Problem Solving:
+   - Solved frame history diff display end-to-end (backend git diff → API → frontend UI)
+   - Solved editor name resolution via frontend user lookup
+   - Solved conversation AI failure with JSON fallback for models that don't return structured JSON
+   - Solved status property setter bug in Conversation model
+   - Ongoing: The auto-evaluation after synthesis may still fail if the AI endpoint is unreachable (it's best-effort)
+   - Ongoing: The conversation AI coverage tracking won't update when model returns plain text (state stays unchanged in fallback mode)
+
+6. All User Messages:
+   - "the history of the framer should be check the diff, so it's better to use git to maintain the diff, I can see the version of the frame, but no diff. And the editor is currently the id, not the name, please also change to name. The ai of the convesation is not able to work, please check the logs and see what happened and fix it."
+   - "the view history please support expand and collapse, or other way to collapse, otherwise it will become very long if the history is a lot. please also make sure the ai evaluation in the frame main page and the in the conversation use the same way, currently the score and the result is different."
+   - "issue 2 is still there, please check again,the ai in conversation evaluation got 57 score but the ai evaluation in the frame got 93 score."
+   - "the conversation AI is failed, maybe you are correct conversation AI will evaluation with the conversation agent and check the coverage, and the evaluation ai will just check the wroten frame, it's different, if so please still use 2 agents for different purposes, but the UI please help to optimize as well to avoid the confusion."
+
+7. Pending Tasks:
+   - All explicit tasks from the user have been implemented and deployed
+   - No explicitly pending tasks remain
+
+8. Current Work:
+   Just finished deploying the latest round of fixes addressing the user's most recent message about the conversation AI failing. The four changes were:
+   1. Fixed `conv.status` setter bug → `conv.meta.status`
+   2. Added JSON fallback in `process_turn` so conversation works even when AI returns plain text
+   3. Reverted score syncing (keeping both evaluation systems independent)
+   4. Updated UI labels: "Discussion Coverage" (conversation) vs "Content Quality Score" (frame page)
+   
+   All containers were rebuilt and deployed. Backend started cleanly with no errors. Verified conversations API returns 200. Found active conversation `conv-2026-02-13-6dd27d` available for testing.
+
+9. Optional Next Step:
+   Test the conversation AI by sending a message to `conv-2026-02-13-6dd27d` to verify the JSON fallback works correctly and the conversation no longer fails. This directly validates the fix for the user's most recent request: "the conversation AI is failed... please still use 2 agents for different purposes, but the UI please help to optimize as well to avoid the confusion."
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+add a preview button to preview the frame generated by the conversation
+
+---
+
+[Request interrupted by user for tool use]
