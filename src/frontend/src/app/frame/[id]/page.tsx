@@ -97,6 +97,9 @@ export default function FrameDetailPage() {
   const [showKnowledgeDialog, setShowKnowledgeDialog] = useState(false);
   const [isDistilling, setIsDistilling] = useState(false);
   const [expandedKnowledgeId, setExpandedKnowledgeId] = useState<string | null>(null);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [expandedHistoryHash, setExpandedHistoryHash] = useState<string | null>(null);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
   // Always load fresh data on mount to pick up review summaries, version changes, etc.
   useEffect(() => {
@@ -151,6 +154,24 @@ export default function FrameDetailPage() {
     }
     fetchHistory();
   }, [frameId]);
+
+  // Fetch users for ID-to-name resolution
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const api = getAPIClient();
+        const userList = await api.listUsers();
+        const map: Record<string, string> = {};
+        for (const u of userList) {
+          map[u.id] = u.name || u.email;
+        }
+        setUserMap(map);
+      } catch {
+        // Ignore errors - user names are optional
+      }
+    }
+    fetchUsers();
+  }, []);
 
   if (!frame) {
     return (
@@ -369,10 +390,13 @@ export default function FrameDetailPage() {
           {frame.aiScore != null && (
             <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-violet-500" />
-                  AI Evaluation
-                </h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    Content Quality Score
+                  </h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5 ml-6">AI assessment of the written frame content</p>
+                </div>
                 <span
                   className={cn(
                     'text-lg font-bold px-3 py-1 rounded-full',
@@ -600,40 +624,94 @@ export default function FrameDetailPage() {
           )}
 
           {/* Version History */}
-          {history.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6">
-              <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4 flex items-center gap-2">
-                <Clock className="h-4 w-4 text-slate-500" />
-                Version History
-              </h3>
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
+          {history.length > 0 && (() => {
+            const COLLAPSED_LIMIT = 3;
+            const visibleHistory = isHistoryExpanded ? history : history.slice(0, COLLAPSED_LIMIT);
+            const hiddenCount = history.length - COLLAPSED_LIMIT;
+            return (
+              <div className="rounded-xl border border-slate-200 bg-white p-6">
+                <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-slate-500" />
+                  Version History
+                  <span className="text-xs font-normal text-slate-400 ml-1">({history.length})</span>
+                </h3>
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
 
-                <div className="space-y-3">
-                  {history.map((entry, i) => (
-                    <div key={entry.hash} className="flex items-start gap-3 relative">
-                      {/* Timeline dot */}
-                      <div className={cn(
-                        'h-[15px] w-[15px] rounded-full border-2 flex-shrink-0 mt-0.5 z-10',
-                        i === 0
-                          ? 'bg-violet-500 border-violet-500'
-                          : 'bg-white border-slate-300'
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-700 font-medium truncate">
-                          {entry.message}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {entry.author_name} &middot; {formatHistoryTimestamp(entry.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                  <div className="space-y-3">
+                    {visibleHistory.map((entry, i) => {
+                      const isExpanded = expandedHistoryHash === entry.hash;
+                      return (
+                        <div key={entry.hash} className="relative">
+                          <div
+                            className={cn(
+                              'flex items-start gap-3 cursor-pointer hover:bg-slate-50 rounded-lg px-1 py-1 -mx-1 transition-colors',
+                              isExpanded && 'bg-slate-50'
+                            )}
+                            onClick={() => setExpandedHistoryHash(isExpanded ? null : entry.hash)}
+                          >
+                            {/* Timeline dot */}
+                            <div className={cn(
+                              'h-[15px] w-[15px] rounded-full border-2 flex-shrink-0 mt-0.5 z-10',
+                              i === 0
+                                ? 'bg-violet-500 border-violet-500'
+                                : 'bg-white border-slate-300'
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-slate-700 font-medium truncate flex-1">
+                                  {entry.message}
+                                </p>
+                                {entry.diff && (
+                                  isExpanded
+                                    ? <ChevronDown className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                    : <ChevronRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400">
+                                {userMap[entry.author_name] || entry.author_name} &middot; {formatHistoryTimestamp(entry.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                          {/* Expandable diff */}
+                          {isExpanded && entry.diff && (
+                            <div className="ml-7 mt-2 mb-1 rounded-lg border border-slate-200 bg-slate-900 overflow-x-auto max-h-[400px] overflow-y-auto">
+                              <pre className="text-xs font-mono p-3 text-slate-300 leading-relaxed whitespace-pre-wrap">
+                                {entry.diff.split('\n').map((line, li) => {
+                                  let lineClass = '';
+                                  if (line.startsWith('+')) lineClass = 'text-emerald-400';
+                                  else if (line.startsWith('-')) lineClass = 'text-red-400';
+                                  else if (line.startsWith('@@')) lineClass = 'text-blue-400';
+                                  return (
+                                    <span key={li} className={lineClass}>
+                                      {line}
+                                      {'\n'}
+                                    </span>
+                                  );
+                                })}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+                {/* Show more / Show less */}
+                {history.length > COLLAPSED_LIMIT && (
+                  <button
+                    className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
+                    onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                  >
+                    {isHistoryExpanded
+                      ? 'Show less'
+                      : `Show ${hiddenCount} more version${hiddenCount > 1 ? 's' : ''}`}
+                  </button>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Owner & Date Info */}
           <div className="flex items-center justify-between text-sm text-slate-500 px-2">
@@ -643,7 +721,7 @@ export default function FrameDetailPage() {
               </span>
               {frame.reviewer && (
                 <span>
-                  Reviewer: <span className="font-medium text-slate-700">{frame.reviewer}</span>
+                  Reviewer: <span className="font-medium text-slate-700">{userMap[frame.reviewer] || frame.reviewer}</span>
                 </span>
               )}
             </div>

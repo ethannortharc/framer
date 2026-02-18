@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from git import Repo, InvalidGitRepositoryError, Actor
+from git import Repo, InvalidGitRepositoryError, Actor, NULL_TREE
 
 
 class GitService:
@@ -226,3 +226,38 @@ class GitService:
         """
         frame_path = f"frames/{frame_id}"
         return self.get_file_history(frame_path, limit=limit)
+
+    def get_commit_diff(self, commit_hash: str) -> str:
+        """
+        Get the diff for a specific commit.
+
+        Args:
+            commit_hash: The commit hash to get the diff for
+
+        Returns:
+            Unified diff string
+        """
+        if not self.is_repo():
+            return ""
+
+        repo = self.repo
+        try:
+            commit = repo.commit(commit_hash)
+            if commit.parents:
+                # Diff against parent
+                parent = commit.parents[0]
+                diff = parent.diff(commit, create_patch=True)
+            else:
+                # Initial commit - diff against empty tree
+                diff = commit.diff(NULL_TREE, create_patch=True)
+
+            lines = []
+            for d in diff:
+                header = f"--- {d.a_path or '/dev/null'}\n+++ {d.b_path or '/dev/null'}"
+                lines.append(header)
+                if d.diff:
+                    patch = d.diff.decode("utf-8", errors="replace")
+                    lines.append(patch)
+            return "\n".join(lines)
+        except Exception:
+            return ""

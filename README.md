@@ -2,7 +2,9 @@
 
 **AI-Assisted Pre-Development Thinking Framework**
 
-Framer is a structured thinking tool that helps engineering teams frame problems before writing code. It combines a guided workflow with AI assistance to ensure thorough problem understanding, user perspective consideration, and validation planning.
+Framer is a structured thinking tool that helps engineering teams frame problems before writing code. It combines a conversation-first workflow with AI coaching to ensure thorough problem understanding, user perspective consideration, and validation planning.
+
+![Dashboard - Kanban Board](docs/screenshots/02-dashboard.png)
 
 ## Why Framer?
 
@@ -11,72 +13,128 @@ Before jumping into code, developers often miss crucial context:
 - **What** are we explicitly *not* doing?
 - **How** will we know if we succeeded?
 
-Framer provides a structured framework to capture this thinking, with AI assistance to identify gaps and suggest improvements.
+Framer provides a structured framework to capture this thinking through natural conversation with an AI coach, then synthesizes it into a well-organized frame document.
 
 ## Key Features
 
-### Structured Frames
+### Conversation-First Frame Creation
+
+Start by describing your problem in plain language. The AI Coach guides you through structured thinking, tracking discussion coverage across four key dimensions in real time.
+
+![Conversation Interface](docs/screenshots/05-conversation.png)
+
+The right sidebar shows **Discussion Coverage** — how much of each section has been explored — along with identified gaps. When ready, preview the synthesized frame before committing.
+
+### Structured Frame Documents
+
 Each frame captures four dimensions of pre-development thinking:
 
 | Section | Purpose |
 |---------|---------|
 | **Problem Statement** | Clear, focused description of what needs solving |
 | **User Perspective** | Who experiences this, their journey, and pain points |
-| **Engineering Framing** | Technical principles and explicit non-goals |
+| **Engineering Framing** | Technical principles, trade-offs, and explicit non-goals |
 | **Validation Thinking** | Success signals and disconfirming evidence |
 
-### AI-Powered Assistance
-- **Frame Assessment**: AI scores frame quality and identifies gaps
-- **Content Generation**: Questionnaire-driven content creation
-- **Refinement Chat**: Conversational content improvement
-- **Contextual Suggestions**: Section-specific guidance
+![Frame Detail View](docs/screenshots/03-frame-detail.png)
 
-### Workflow Management
-- **Kanban Board**: Visual status tracking (Draft → In Review → Ready → Feedback → Archived)
-- **Frame Types**: Bug Fix, Feature, Exploration templates
-- **Comments & Feedback**: Collaborative review process
-- **Version History**: Git-backed change tracking
+### AI-Powered Quality Assessment
+
+Frames are automatically evaluated by AI for completeness and quality. The evaluation provides a score breakdown per section, written feedback, and specific issues to address.
+
+![AI Evaluation & Version History](docs/screenshots/04-ai-evaluation.png)
+
+### Kanban Workflow
+
+Visual status tracking with drag-and-drop across stages:
+
+**Draft** → **In Review** → **Ready** → **Feedback** → **Archived**
+
+Filter by frame type (Feature, Bug, Exploration) or owner. Each card shows the AI quality score at a glance.
+
+### Knowledge Base
+
+A team-wide knowledge system for patterns, decisions, and lessons learned. Supports semantic search via vector embeddings and manual categorization.
+
+![Knowledge Base](docs/screenshots/06-knowledge.png)
+
+Categories: **Pattern** | **Decision** | **Prediction** | **Context** | **Lesson**
+
+### Frame Preview
+
+Preview what a synthesized frame will look like before committing. If no new messages have been sent since the last preview, the cached content is reused — no redundant AI calls.
+
+### Version History
+
+Git-backed change tracking with full diff support. Every synthesis and edit creates a commit, so you can trace how a frame evolved over time.
+
+### Admin Portal
+
+Separate admin interface for system configuration, user management, and AI provider settings.
+
+![Admin Portal](docs/screenshots/07-admin-login.png)
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Frontend (Next.js)                        │
-│  React + Zustand + Tailwind + Radix UI                      │
+│  React 19 + Zustand + Tailwind CSS v4 + Radix UI           │
 ├─────────────────────────────────────────────────────────────┤
 │                    Backend (FastAPI)                         │
-│  REST API + AI Agents + File-based Storage                  │
+│  REST API + AI Agents + File Storage + ChromaDB Vectors     │
 ├─────────────────────────────────────────────────────────────┤
 │                   PocketBase (Auth)                          │
-│  User Authentication + Session Management                    │
+│  User Authentication + Session Management                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Backend Services
-- **FrameService**: CRUD operations with JSON file storage
-- **TemplateService**: YAML-based frame templates with prompts
-- **GitService**: Automatic version control for all changes
+- **FrameService**: CRUD operations with file-based storage (YAML/JSON/Markdown)
+- **ConversationService**: Conversation history and state management
+- **KnowledgeService**: Knowledge entry persistence and retrieval
+- **VectorService**: Semantic search via ChromaDB (default: all-MiniLM-L6-v2 embeddings)
+- **GitService**: Automatic version control with diff support
 - **IndexService**: SQLite cache for fast queries
 
 ### AI Agents
-- **EvaluatorAgent**: Scores frames and provides detailed feedback
+- **ConversationAgent**: Guides users through structured problem framing via chat
+- **EvaluatorAgent**: Scores frames and provides detailed quality feedback
 - **GeneratorAgent**: Creates content from questionnaire answers
 - **RefinerAgent**: Improves content through conversation
+
+AI providers are configurable — supports **Anthropic**, **OpenAI**, and any **OpenAI-compatible** endpoint (MiniMax, GLM, local models, etc.).
 
 ## Getting Started
 
 ### Prerequisites
-- Python 3.12+
-- Node.js 20+
-- Git
+- Docker & Docker Compose (recommended)
+- Or: Python 3.12+ and Node.js 20+
 
-### Quick Start
+### Quick Start with Docker
 
 ```bash
 # Clone the repository
 git clone https://github.com/ethannortharc/framer.git
 cd framer
 
+# Start all services
+docker compose up -d
+
+# Or use the helper script for specific environments
+./scripts/docker.sh dev up      # Development
+./scripts/docker.sh qa up       # QA/Staging
+./scripts/docker.sh prod up     # Production
+```
+
+Services:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- PocketBase Admin: http://localhost:8090/_/
+
+### Local Development
+
+```bash
 # Install dependencies
 make install
 
@@ -96,35 +154,32 @@ cd src/frontend
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
+## Configuration
 
-### Docker Deployment
+### Environment Variables
 
-The project supports multi-environment deployment via configuration files.
+Configuration files are stored in `config/` directory:
+- `.env.common` — Shared settings across all environments
+- `.env.dev` — Development (ports 3000, 8000, 8090)
+- `.env.qa` — QA/Staging (ports 3001, 8001, 8091)
+- `.env.prod` — Production (ports 80, 8000, 8090)
 
-```bash
-# Using the helper script (recommended)
-./scripts/docker.sh dev up      # Development
-./scripts/docker.sh qa up       # QA/Staging
-./scripts/docker.sh prod up     # Production
+### AI Configuration
 
-# Or manually with env file
-docker compose --env-file config/.env.dev up -d
-
-# Stop services
-./scripts/docker.sh dev down
+```env
+AI_PROVIDER=anthropic          # anthropic | openai | minimax | glm
+AI_API_KEY=your-api-key
+AI_MODEL=claude-sonnet-4-20250514
+AI_TEMPERATURE=0.7
+AI_MAX_TOKENS=4096
+AI_TIMEOUT=300
 ```
 
-**Environment Configuration** (`config/` directory):
-- `.env.common` - Shared settings across all environments
-- `.env.dev` - Development (ports 3000, 8000, 8090)
-- `.env.qa` - QA/Staging (ports 3001, 8001, 8091)
-- `.env.prod` - Production (ports 80, 8000, 8090)
+### Embedding Configuration
 
-Services:
-- Frontend: http://localhost:3000 (dev)
-- Backend API: http://localhost:8000
-- PocketBase Admin: http://localhost:8090/_/
+```env
+EMBEDDING_PROVIDER=default     # default (all-MiniLM-L6-v2) | openai (text-embedding-3-small)
+```
 
 ## Project Structure
 
@@ -133,78 +188,30 @@ framer/
 ├── src/
 │   ├── backend/              # FastAPI backend
 │   │   └── app/
-│   │       ├── api/          # REST endpoints
-│   │       ├── agents/       # AI agents (evaluator, generator, refiner)
+│   │       ├── api/          # REST endpoints (frames, conversations, knowledge, ai, admin)
+│   │       ├── agents/       # AI agents (conversation, evaluator, generator, refiner)
 │   │       ├── auth/         # PocketBase authentication
 │   │       ├── models/       # Pydantic data models
-│   │       └── services/     # Business logic
+│   │       └── services/     # Business logic (frame, conversation, knowledge, git, vector)
 │   │
-│   └── frontend/             # Next.js production frontend
+│   └── frontend/             # Next.js frontend
 │       └── src/
-│           ├── app/          # Next.js app router (login, dashboard, frame)
-│           ├── components/   # React components (ui, layout, dashboard, frame)
+│           ├── app/          # App router (dashboard, new, frame/[id], knowledge, admin, archive)
+│           ├── components/   # React components (ui, layout, dashboard, frame, conversation)
 │           ├── contexts/     # React contexts (AuthContext)
-│           ├── lib/          # API client, auth, utilities
+│           ├── lib/          # API client, auth, transforms
 │           ├── store/        # Zustand state management
 │           └── types/        # TypeScript types
 │
-├── tests/
-│   └── backend/              # Python pytest tests (156 tests)
-│       ├── unit/             # Unit tests
-│       └── integration/      # API integration tests
-│
-├── config/                   # Environment configuration
-│   ├── .env.common           # Shared settings
-│   ├── .env.dev              # Development
-│   ├── .env.qa               # QA/Staging
-│   └── .env.prod             # Production
-│
-├── scripts/                  # Helper scripts
-│   └── docker.sh             # Multi-environment Docker management
-│
-├── docker-compose.yml        # Docker Compose configuration
-└── Makefile                  # Common commands
+├── config/                   # Environment configuration (.env.dev, .env.qa, .env.prod)
+├── data/templates/           # Frame templates (bug-fix, feature, exploration)
+├── docs/screenshots/         # Application screenshots
+├── pocketbase/               # PocketBase migrations
+├── scripts/                  # Helper scripts (docker.sh)
+├── tests/                    # Backend tests (pytest)
+├── docker-compose.yml
+└── Makefile
 ```
-
-## Testing
-
-**Total: 202 tests (156 backend + 46 E2E)**
-
-### Backend Tests (pytest)
-
-```bash
-# Run all backend tests
-make test-backend
-
-# Or directly
-python -m pytest tests/backend/ -v
-```
-
-**Coverage**: 156 tests across models, services, API endpoints, and AI agents.
-
-### E2E Tests (Playwright)
-
-```bash
-# Run E2E tests
-cd src/frontend && npm run test:e2e
-
-# Run with UI
-cd src/frontend && npm run test:e2e:ui
-
-# Run headed (visible browser)
-cd src/frontend && npm run test:e2e:headed
-
-# Debug mode
-cd src/frontend && npm run test:e2e:debug
-```
-
-**Test Suites** (46 tests):
-| Suite | Tests | Coverage |
-|-------|-------|----------|
-| `auth.spec.ts` | 9 | Login/register flows, validation, sign out |
-| `navigation.spec.ts` | 7 | Sidebar navigation, active states, modals |
-| `frames.spec.ts` | 19 | CRUD operations, kanban board, checklist |
-| `ai-features.spec.ts` | 11 | AI sidebar, guidance system, templates |
 
 ## API Reference
 
@@ -212,12 +219,35 @@ cd src/frontend && npm run test:e2e:debug
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/frames` | List all frames |
+| GET | `/api/frames` | List frames (filterable by status, owner, project) |
 | POST | `/api/frames` | Create a frame |
 | GET | `/api/frames/{id}` | Get frame by ID |
 | PUT | `/api/frames/{id}` | Update frame content |
 | PATCH | `/api/frames/{id}/status` | Update frame status |
 | DELETE | `/api/frames/{id}` | Delete a frame |
+| GET | `/api/frames/{id}/history` | Get version history with diffs |
+| POST | `/api/frames/{id}/ai/evaluate` | AI quality evaluation |
+
+### Conversations API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/conversations` | Start a new conversation |
+| GET | `/api/conversations` | List conversations |
+| GET | `/api/conversations/{id}` | Get conversation by ID |
+| POST | `/api/conversations/{id}/message` | Send a message |
+| POST | `/api/conversations/{id}/preview` | Preview synthesized frame (no persist) |
+| POST | `/api/conversations/{id}/synthesize` | Synthesize and create/update frame |
+| DELETE | `/api/conversations/{id}` | Delete a conversation |
+
+### Knowledge API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/knowledge` | Create a knowledge entry |
+| GET | `/api/knowledge` | List entries (filterable) |
+| POST | `/api/knowledge/search` | Semantic vector search |
+| POST | `/api/knowledge/distill` | AI-extract knowledge from conversations |
 
 ### AI API
 
@@ -227,120 +257,28 @@ cd src/frontend && npm run test:e2e:debug
 | POST | `/api/ai/generate` | Generate content from answers |
 | POST | `/api/ai/chat` | Chat for content refinement |
 
-### Templates API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/templates` | List all templates |
-| GET | `/api/templates/{id}` | Get template by ID |
-
-## Configuration
-
-### Environment Variables
-
-Configuration files are stored in `config/` directory. Each environment has its own `.env` file.
-
-**Frontend**:
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
-```
-
-**Backend**:
-```env
-POCKETBASE_URL=http://localhost:8090
-CORS_ORIGINS=http://localhost:3000
-DATA_PATH=/data
-```
-
-**Docker Compose** (via `config/.env.*`):
-```env
-# Ports
-POCKETBASE_PORT=8090
-BACKEND_PORT=8000
-FRONTEND_PORT=3000
-
-# CORS
-BACKEND_CORS_ORIGINS=http://localhost:3000
-
-# API URLs (used at build time)
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
-```
-
-## Frame Templates
-
-Templates define the structure and AI prompts for each frame type:
-
-```yaml
-# templates/bug-fix/meta.yaml
-id: bug-fix
-name: Bug Fix
-description: Template for fixing bugs
-type: bug
-
-sections:
-  - id: problem
-    name: Problem Statement
-    required: true
-  - id: user
-    name: User Perspective
-    required: true
-  # ...
-
-prompt_templates:
-  evaluation: |
-    Evaluate this bug fix frame for completeness...
-  generation: |
-    Generate content based on these answers...
-```
-
-## Development
-
-### Makefile Commands
+## Testing
 
 ```bash
-make help           # Show all commands
-make install        # Install dependencies
-make dev            # Start dev servers
-make test           # Run all tests
-make test-backend   # Backend tests only
-make test-e2e       # E2E tests only
-make build          # Build frontend
-make docker-up      # Start Docker services
-make docker-down    # Stop Docker services
-make clean          # Remove build artifacts
+# Run all backend tests
+make test-backend
+
+# Or directly
+python -m pytest tests/backend/ -v
+
+# E2E tests (Playwright)
+cd src/frontend && npm run test:e2e
 ```
-
-### Adding a New Frame Type
-
-1. Create template directory: `src/backend/data/templates/{type}/`
-2. Add `meta.yaml` with sections and prompts
-3. Add `questionnaire.md` for guided input
-4. The template will be automatically available
 
 ## Tech Stack
 
-**Frontend**:
-- Next.js 16 (App Router)
-- React 19
-- TypeScript
-- Zustand (state management)
-- Tailwind CSS v4
-- Radix UI (accessible components)
-- Playwright (E2E testing)
+**Frontend**: Next.js 16, React 19, TypeScript, Zustand, Tailwind CSS v4, Radix UI, Playwright
 
-**Backend**:
-- Python 3.12
-- FastAPI
-- Pydantic v2
-- GitPython
-- SQLite (indexing)
-- pytest
+**Backend**: Python 3.12, FastAPI, Pydantic v2, GitPython, ChromaDB, SQLite
 
-**Infrastructure**:
-- Docker & Docker Compose
-- PocketBase (authentication)
+**Infrastructure**: Docker & Docker Compose, PocketBase (auth)
+
+**AI**: Anthropic Claude, OpenAI GPT, or any OpenAI-compatible provider
 
 ## License
 

@@ -19,12 +19,17 @@ interface ConversationStore {
   // UI State
   isTyping: boolean;
   isLoading: boolean;
+  isPreviewing: boolean;
+  previewContent: Record<string, string> | null;
+  previewMessageCount: number;
   error: string | null;
 
   // Actions
   startConversation: (owner: string, purpose?: ConversationPurpose, frameId?: string) => Promise<Conversation>;
   sendMessage: (content: string) => Promise<void>;
   retryMessage: (messageId: string) => Promise<void>;
+  previewFrame: () => Promise<void>;
+  clearPreview: () => void;
   synthesizeFrame: () => Promise<string | null>;
   summarizeReview: () => Promise<string | null>;
   loadConversation: (id: string) => Promise<void>;
@@ -84,6 +89,9 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
   relevantKnowledge: [],
   isTyping: false,
   isLoading: false,
+  isPreviewing: false,
+  previewContent: null,
+  previewMessageCount: 0,
   error: null,
 
   setError: (error) => set({ error }),
@@ -130,6 +138,9 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
         : null,
       isTyping: true,
       error: null,
+      // Invalidate preview cache since conversation changed
+      previewContent: null,
+      previewMessageCount: 0,
     }));
 
     try {
@@ -214,14 +225,51 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
     await get().sendMessage(failedMsg.content);
   },
 
+  previewFrame: async () => {
+    const { activeConversation, previewContent, previewMessageCount } = get();
+    if (!activeConversation) return;
+
+    const currentMsgCount = activeConversation.messages.length;
+
+    // Reuse cached preview if no new messages since last preview
+    if (previewContent && previewMessageCount === currentMsgCount) {
+      return; // Modal will show from existing previewContent
+    }
+
+    set({ isPreviewing: true, error: null });
+    try {
+      const api = getAPIClient();
+      const response = await api.previewFrame(activeConversation.id);
+      set({
+        previewContent: response.content,
+        previewMessageCount: currentMsgCount,
+        isPreviewing: false,
+      });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Failed to preview frame',
+        isPreviewing: false,
+      });
+    }
+  },
+
+  clearPreview: () => set({ previewContent: null }),
+
   synthesizeFrame: async () => {
-    const { activeConversation } = get();
+    const { activeConversation, previewContent, previewMessageCount } = get();
     if (!activeConversation) return null;
+
+    // Reuse cached preview content if still fresh (no new messages since preview)
+    const currentMsgCount = activeConversation.messages.length;
+    const cachedContent =
+      previewContent && previewMessageCount === currentMsgCount
+        ? previewContent
+        : undefined;
 
     set({ isLoading: true, error: null });
     try {
       const api = getAPIClient();
-      const response = await api.synthesizeFrame(activeConversation.id);
+      const response = await api.synthesizeFrame(activeConversation.id, cachedContent);
 
       set((s) => ({
         activeConversation: s.activeConversation
@@ -232,6 +280,8 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
             }
           : null,
         isLoading: false,
+        previewContent: null,
+        previewMessageCount: 0,
       }));
 
       return response.frame_id;
@@ -310,5 +360,5 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
   },
 
   clearConversation: () =>
-    set({ activeConversation: null, relevantKnowledge: [] }),
+    set({ activeConversation: null, relevantKnowledge: [], previewContent: null, previewMessageCount: 0 }),
 }));

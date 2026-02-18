@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Sparkles, Loader2, Lock, FileText } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, Lock, FileText, Eye, X } from 'lucide-react';
 import { useConversationStore } from '@/store/conversationStore';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ChatInterface } from '@/components/conversation/ChatInterface';
@@ -24,10 +24,14 @@ export default function NewFramePage() {
     relevantKnowledge,
     isTyping,
     isLoading,
+    isPreviewing,
+    previewContent,
     error,
     startConversation,
     sendMessage,
     retryMessage,
+    previewFrame,
+    clearPreview,
     synthesizeFrame,
     summarizeReview,
     loadConversation,
@@ -272,9 +276,27 @@ export default function NewFramePage() {
             /* Normal authoring mode */
             <>
               <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => previewFrame()}
+                disabled={!activeConversation || (activeConversation.messages.length < 2) || isLoading || isPreviewing}
+              >
+                {isPreviewing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating Preview...
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Preview Frame
+                  </>
+                )}
+              </Button>
+              <Button
                 className="w-full gap-2"
                 onClick={handleSynthesize}
-                disabled={!activeConversation || (activeConversation.messages.length < 2) || isLoading}
+                disabled={!activeConversation || (activeConversation.messages.length < 2) || isLoading || isPreviewing}
               >
                 {isLoading ? (
                   <>
@@ -303,6 +325,78 @@ export default function NewFramePage() {
           )}
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewContent != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900">Frame Preview</h2>
+              <button
+                onClick={clearPreview}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+              {previewContent.problem_statement && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Problem Statement</h3>
+                  <div className="prose prose-sm max-w-none text-slate-600">
+                    <MarkdownContent content={previewContent.problem_statement} />
+                  </div>
+                </div>
+              )}
+              {previewContent.user_perspective && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">User Perspective</h3>
+                  <div className="prose prose-sm max-w-none text-slate-600">
+                    <MarkdownContent content={previewContent.user_perspective} />
+                  </div>
+                </div>
+              )}
+              {previewContent.engineering_framing && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Engineering Framing</h3>
+                  <div className="prose prose-sm max-w-none text-slate-600">
+                    <MarkdownContent content={previewContent.engineering_framing} />
+                  </div>
+                </div>
+              )}
+              {previewContent.validation_thinking && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Validation Thinking</h3>
+                  <div className="prose prose-sm max-w-none text-slate-600">
+                    <MarkdownContent content={previewContent.validation_thinking} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200">
+              <Button variant="outline" onClick={clearPreview}>
+                Close
+              </Button>
+              <Button
+                className="gap-2"
+                onClick={() => {
+                  clearPreview();
+                  handleSynthesize();
+                }}
+                disabled={isLoading}
+              >
+                <Sparkles className="h-4 w-4" />
+                {hasLinkedFrame ? 'Update Frame' : 'Synthesize Frame'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

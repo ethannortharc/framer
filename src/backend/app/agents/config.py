@@ -158,17 +158,23 @@ async def call_ai_with_retry(fn, max_retries: int = 4, retry_delay: float = 1.0)
             return await fn()
         except (ValueError, Exception) as e:
             error_msg = str(e)
+            error_type = type(e).__name__
             is_retryable = (
                 "Empty" in error_msg
                 or "No JSON" in error_msg
                 or "Expecting value" in error_msg
-                or "JSONDecodeError" in type(e).__name__
+                or "JSONDecodeError" in error_type
+                # Retry on timeout and connection errors
+                or "Timeout" in error_type
+                or "timeout" in error_msg.lower()
+                or "ConnectionError" in error_type
+                or "connection" in error_msg.lower()
             )
             if not is_retryable or attempt >= max_retries:
                 raise
             last_error = e
             delay = retry_delay * (2 ** attempt)  # exponential backoff: 1s, 2s, 4s, 8s
-            logger.warning(f"AI call attempt {attempt + 1}/{max_retries + 1} failed ({error_msg}), retrying in {delay}s...")
+            logger.warning(f"AI call attempt {attempt + 1}/{max_retries + 1} failed ({error_type}: {error_msg}), retrying in {delay}s...")
             await asyncio.sleep(delay)
 
     raise last_error  # unreachable but satisfies type checker

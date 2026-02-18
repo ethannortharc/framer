@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.config import get_ai_config
 from app.agents.conversation import ConversationAgent
+from app.api.ai import EVALUATE_PROMPT
 from app.models.conversation import ConversationPurpose, ConversationState, ConversationStatus
 from app.services.conversation_service import ConversationService, ConversationNotFoundError
 from app.services.vector_service import VectorService
@@ -71,6 +72,14 @@ class SendMessageResponse(BaseModel):
     ai_response: ConversationMessageResponse
     state: ConversationStateResponse
     relevant_knowledge: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class PreviewResponse(BaseModel):
+    content: dict[str, str]
+
+
+class SynthesizeRequest(BaseModel):
+    content: Optional[dict[str, str]] = None
 
 
 class SynthesizeResponse(BaseModel):
@@ -196,7 +205,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         # Auto-reactivate synthesized conversations when user sends a new message
         if conv.status == ConversationStatus.SYNTHESIZED:
             conv_service.update_status(conv_id, ConversationStatus.ACTIVE)
-            conv.status = ConversationStatus.ACTIVE
+            conv.meta.status = ConversationStatus.ACTIVE
         elif conv.status != ConversationStatus.ACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -287,9 +296,43 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
             relevant_knowledge=relevant_knowledge,
         )
 
+    @router.post("/{conv_id}/preview", dependencies=get_auth_dependencies())
+    async def preview_frame(
+        conv_id: str,
+        conv_service: ConversationService = Depends(get_conversation_service),
+    ) -> PreviewResponse:
+        try:
+            conv = conv_service.get_conversation(conv_id)
+        except ConversationNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Conversation not found: {conv_id}",
+            )
+
+        if conv.status not in (ConversationStatus.ACTIVE, ConversationStatus.SYNTHESIZED):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Conversation is not active",
+            )
+
+        config = get_ai_config()
+        agent = ConversationAgent(config=config)
+        try:
+            content = await agent.synthesize_frame(conv.messages, conv.state)
+        except Exception as e:
+            import logging
+            logging.getLogger("conversations_api").exception(f"Preview AI call failed: {type(e).__name__}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"AI service error: {str(e)}",
+            )
+
+        return PreviewResponse(content=content)
+
     @router.post("/{conv_id}/synthesize", dependencies=get_auth_dependencies())
     async def synthesize_frame(
         conv_id: str,
+        request: SynthesizeRequest = SynthesizeRequest(),
         conv_service: ConversationService = Depends(get_conversation_service),
         http_request: Request = None,
     ) -> SynthesizeResponse:
@@ -307,10 +350,14 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 detail="Conversation is not active",
             )
 
-        # Synthesize via AI
         config = get_ai_config()
-        agent = ConversationAgent(config=config)
-        content = await agent.synthesize_frame(conv.messages, conv.state)
+
+        # Use pre-computed content from preview if provided, otherwise call AI
+        if request.content:
+            content = request.content
+        else:
+            agent = ConversationAgent(config=config)
+            content = await agent.synthesize_frame(conv.messages, conv.state)
 
         from app.models.frame import FrameContent, FrameType
 
@@ -376,6 +423,31 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
             )
         except Exception:
             pass
+
+        # Auto-evaluate the synthesized frame using the EvaluatorAgent
+        # so the frame page shows a quality score immediately
+        try:
+            from app.agents.evaluator import EvaluatorAgent
+            evaluator = EvaluatorAgent(prompt_template=EVALUATE_PROMPT, config=config)
+            eval_content = (
+                f"# Problem Statement\n{content.get('problem_statement', '')}\n\n"
+                f"## User Perspective\n{content.get('user_perspective', '')}\n\n"
+                f"## Engineering Framing\n{content.get('engineering_framing', '')}\n\n"
+                f"## Validation Thinking\n{content.get('validation_thinking', '')}\n"
+            )
+            eval_result = await evaluator.evaluate(frame_content=eval_content)
+            frame_service.save_evaluation(
+                frame_id=frame.id,
+                score=eval_result["score"],
+                breakdown=eval_result["breakdown"],
+                feedback=eval_result["feedback"],
+                issues=eval_result["issues"],
+            )
+        except Exception:
+            import logging
+            logging.getLogger("conversations_api").warning(
+                "Auto-evaluation after synthesis failed for frame %s", frame.id, exc_info=True
+            )
 
         return SynthesizeResponse(
             frame_id=frame.id,

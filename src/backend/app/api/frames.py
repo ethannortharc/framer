@@ -121,6 +121,7 @@ class FrameHistoryEntry(BaseModel):
     message: str
     author_name: str
     timestamp: str
+    diff: Optional[str] = None
 
 
 def get_frame_service(request: Request) -> FrameService:
@@ -133,14 +134,14 @@ def get_git_service(request: Request) -> GitService:
     return request.app.state.git_service
 
 
-def _git_commit(git_service: GitService, frame_id: str, message: str) -> None:
+def _git_commit(git_service: GitService, frame_id: str, message: str, author_name: str = "Framer", author_email: str = "framer@system") -> None:
     """Auto-commit frame changes. Non-blocking, errors are logged."""
     try:
         git_service.commit_frame_changes(
             frame_id=frame_id,
             message=message,
-            author_name="Framer",
-            author_email="framer@system",
+            author_name=author_name,
+            author_email=author_email,
         )
     except Exception as e:
         logger.warning("Git commit failed for frame %s: %s", frame_id, e)
@@ -384,6 +385,7 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
     def get_frame_history(
         frame_id: str,
         limit: int = 20,
+        include_diff: bool = True,
         frame_service: FrameService = Depends(get_frame_service),
         git_service: GitService = Depends(get_git_service),
     ) -> list[FrameHistoryEntry]:
@@ -404,6 +406,7 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
                 message=entry["message"],
                 author_name=entry["author_name"],
                 timestamp=entry["timestamp"].isoformat(),
+                diff=git_service.get_commit_diff(entry["hash"]) if include_diff else None,
             )
             for entry in history
         ]

@@ -169,35 +169,38 @@ class ConversationAgent:
         import logging
         logger = logging.getLogger("conversation_agent")
 
-        if self.config.is_openai_compatible:
-            client = self.config.create_openai_client()
-            all_messages = [{"role": "system", "content": system}] + messages
-            response = await client.chat.completions.create(
-                model=self.config.model,
-                messages=all_messages,
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-            )
-            return response.choices[0].message.content or ""
-        elif self.config.provider == "anthropic":
-            client = self.config.create_anthropic_client()
-            response = await client.messages.create(
-                model=self.config.model,
-                max_tokens=self.config.max_tokens,
-                messages=messages,
-                system=system,
-            )
-            if not response.content:
-                raise ValueError("Empty content in AI response")
-            text = response.content[0].text
-            logger.warning(
-                f"Anthropic text response: stop_reason={response.stop_reason}, "
-                f"usage=in:{response.usage.input_tokens}/out:{response.usage.output_tokens}, "
-                f"preview={repr(text[:150])}"
-            )
-            return text
-        else:
-            raise ValueError(f"Unsupported provider: {self.config.provider}")
+        async def _do_call():
+            if self.config.is_openai_compatible:
+                client = self.config.create_openai_client()
+                all_messages = [{"role": "system", "content": system}] + messages
+                response = await client.chat.completions.create(
+                    model=self.config.model,
+                    messages=all_messages,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
+                )
+                return response.choices[0].message.content or ""
+            elif self.config.provider == "anthropic":
+                client = self.config.create_anthropic_client()
+                response = await client.messages.create(
+                    model=self.config.model,
+                    max_tokens=self.config.max_tokens,
+                    messages=messages,
+                    system=system,
+                )
+                if not response.content:
+                    raise ValueError("Empty content in AI response")
+                text = response.content[0].text
+                logger.warning(
+                    f"Anthropic text response: stop_reason={response.stop_reason}, "
+                    f"usage=in:{response.usage.input_tokens}/out:{response.usage.output_tokens}, "
+                    f"preview={repr(text[:150])}"
+                )
+                return text
+            else:
+                raise ValueError(f"Unsupported provider: {self.config.provider}")
+
+        return await call_ai_with_retry(_do_call)
 
     async def _call_openai(
         self, system: str, messages: list[dict[str, str]]
@@ -250,8 +253,6 @@ class ConversationAgent:
             return parse_json_response(content)
         except ImportError:
             raise RuntimeError("anthropic package not installed")
-        except (anthropic_lib.APITimeoutError, anthropic_lib.APIConnectionError) as e:
-            raise RuntimeError(f"AI service connection error: {e}")
 
     async def process_turn(
         self,
@@ -285,7 +286,19 @@ class ConversationAgent:
             f"total={total_chars} chars (~{total_chars // 4} tokens)"
         )
 
-        result = await self._call_ai(system, chat_messages)
+        # Try structured JSON call first; fall back to plain text if model
+        # doesn't return valid JSON (common with custom/self-hosted models)
+        try:
+            result = await self._call_ai(system, chat_messages)
+        except (ValueError, json.JSONDecodeError) as e:
+            logger.warning(f"JSON parse failed, falling back to text mode: {e}")
+            # Re-call as plain text — the model response is good, just not JSON
+            text_response = await self._call_ai_text(system, chat_messages)
+            return ConversationTurn(
+                response=text_response,
+                updated_state=state,  # keep state unchanged
+                relevant_knowledge=[],
+            )
 
         updated_state_data = result.get("updated_state", {})
         updated_state = ConversationState(

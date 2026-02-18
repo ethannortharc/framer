@@ -38,9 +38,9 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Coverage
+            Discussion Coverage
           </h3>
           <span
             className={cn(
@@ -53,6 +53,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
             {Math.round(overallCoverage * 100)}%
           </span>
         </div>
+        <p className="text-[10px] text-slate-400 mb-2">How much of each topic has been discussed</p>
         {/* Overall progress */}
         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div

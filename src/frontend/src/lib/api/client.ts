@@ -20,7 +20,7 @@ import type {
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000');
+const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '120000');
 
 // API Error class
 export class APIError extends Error {
@@ -110,6 +110,7 @@ export interface FrameHistoryEntry {
   message: string;
   author_name: string;
   timestamp: string;
+  diff?: string;
 }
 
 // Conversation API response types
@@ -170,6 +171,10 @@ export interface SendMessageResponse {
     ready_to_synthesize: boolean;
   };
   relevant_knowledge: Array<Record<string, unknown>>;
+}
+
+export interface PreviewResponse {
+  content: Record<string, string>;
 }
 
 export interface SynthesizeResponse {
@@ -538,12 +543,22 @@ export class FramerAPIClient {
   }
 
   /**
+   * Preview a synthesized frame without persisting
+   */
+  async previewFrame(convId: string): Promise<PreviewResponse> {
+    return this.request<PreviewResponse>(
+      `/api/conversations/${convId}/preview`,
+      { method: 'POST' }
+    );
+  }
+
+  /**
    * Synthesize a frame from a conversation
    */
-  async synthesizeFrame(convId: string): Promise<SynthesizeResponse> {
+  async synthesizeFrame(convId: string, content?: Record<string, string>): Promise<SynthesizeResponse> {
     return this.request<SynthesizeResponse>(
       `/api/conversations/${convId}/synthesize`,
-      { method: 'POST' }
+      { method: 'POST', body: content ? { content } : {} }
     );
   }
 
