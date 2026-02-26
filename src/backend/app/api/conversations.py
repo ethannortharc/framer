@@ -26,6 +26,7 @@ class StartConversationRequest(BaseModel):
 
 class SendMessageRequest(BaseModel):
     content: str
+    sender_name: Optional[str] = None
 
 
 class ConversationMessageResponse(BaseModel):
@@ -34,6 +35,7 @@ class ConversationMessageResponse(BaseModel):
     content: str
     timestamp: str
     metadata: Optional[dict[str, Any]] = None
+    sender_name: Optional[str] = None
 
 
 class ConversationStateResponse(BaseModel):
@@ -102,6 +104,7 @@ def _to_conv_response(conv) -> ConversationResponse:
                 content=m.content,
                 timestamp=m.timestamp.isoformat(),
                 metadata=m.metadata,
+                sender_name=m.sender_name,
             )
             for m in conv.messages
         ],
@@ -266,7 +269,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
             )
 
         # Save user message and AI response only after successful AI call
-        user_msg = conv_service.add_message(conv_id, "user", request.content)
+        user_msg = conv_service.add_message(conv_id, "user", request.content, sender_name=request.sender_name)
         ai_msg = conv_service.add_message(conv_id, "assistant", turn.response)
 
         # Update state
@@ -279,6 +282,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 content=user_msg.content,
                 timestamp=user_msg.timestamp.isoformat(),
                 metadata=user_msg.metadata,
+                sender_name=user_msg.sender_name,
             ),
             ai_response=ConversationMessageResponse(
                 id=ai_msg.id,

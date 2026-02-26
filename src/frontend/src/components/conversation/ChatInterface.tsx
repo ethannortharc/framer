@@ -125,8 +125,8 @@ export function ChatInterface({
                 <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center">
                   <User className="h-4 w-4 text-slate-600" />
                 </div>
-                {userName && (
-                  <span className="text-[10px] text-slate-400">{userName.split(' ')[0]}</span>
+                {(msg.senderName || userName) && (
+                  <span className="text-[10px] text-slate-400">{(msg.senderName || userName || '').split(' ')[0]}</span>
                 )}
               </div>
             )}

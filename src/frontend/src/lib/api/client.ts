@@ -127,6 +127,7 @@ export interface ConversationResponse {
     content: string;
     timestamp: string;
     metadata?: Record<string, unknown>;
+    sender_name?: string;
   }>;
   state: {
     frame_type: string | null;
@@ -156,6 +157,7 @@ export interface SendMessageResponse {
     content: string;
     timestamp: string;
     metadata?: Record<string, unknown>;
+    sender_name?: string;
   };
   ai_response: {
     id: string;
@@ -531,13 +533,14 @@ export class FramerAPIClient {
    */
   async sendConversationMessage(
     convId: string,
-    content: string
+    content: string,
+    senderName?: string
   ): Promise<SendMessageResponse> {
     return this.request<SendMessageResponse>(
       `/api/conversations/${convId}/message`,
       {
         method: 'POST',
-        body: { content },
+        body: { content, sender_name: senderName },
       }
     );
   }

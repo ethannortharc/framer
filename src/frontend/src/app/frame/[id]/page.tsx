@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useFrameStore } from '@/store';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Frame, FrameSection as FrameSectionType, FrameType } from '@/types';
+import { Frame, FrameSection as FrameSectionType, FrameType, FrameStatus } from '@/types';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { FrameDocumentView } from '@/components/frame/FrameDocumentView';
 import { FeedbackForm } from '@/components/frame/FeedbackForm';
-import { formatDate, getStatusLabel, truncate, cn } from '@/lib/utils';
+import { formatDate, truncate, cn } from '@/lib/utils';
 import { getAPIClient, type FrameHistoryEntry, type KnowledgeEntryResponse } from '@/lib/api';
 import { MarkdownContent } from '@/components/frame/MarkdownContent';
 import {
@@ -71,6 +71,7 @@ export default function FrameDetailPage() {
     loadFrames,
     getFrame,
     updateFrame,
+    changeStatus,
     submitForReview,
     markAsReady,
     startFeedback,
@@ -212,21 +213,6 @@ export default function FrameDetailPage() {
     setFocusedSection(section);
   };
 
-  const getStatusBadgeVariant = () => {
-    switch (frame.status) {
-      case 'ready':
-        return 'success';
-      case 'in_review':
-        return 'warning';
-      case 'feedback':
-        return 'default';
-      case 'archived':
-        return 'outline';
-      default:
-        return 'outline';
-    }
-  };
-
   const handleBack = () => {
     router.push('/dashboard');
   };
@@ -267,9 +253,25 @@ export default function FrameDetailPage() {
                     </SelectContent>
                   </Select>
                 )}
-                <Badge variant={getStatusBadgeVariant()}>
-                  {getStatusLabel(frame.status)}
-                </Badge>
+                <Select
+                  value={frame.status}
+                  onValueChange={async (v) => {
+                    const newStatus = v as FrameStatus;
+                    await changeStatus(frame.id, newStatus);
+                    setFrame({ ...frame, status: newStatus });
+                  }}
+                >
+                  <SelectTrigger className="w-32 h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="in_review">In Review</SelectItem>
+                    <SelectItem value="ready">Ready</SelectItem>
+                    <SelectItem value="feedback">Feedback</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
                 {frame.aiScore !== undefined && (
                   <span
                     className={cn(

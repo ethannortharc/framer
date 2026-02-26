@@ -40,6 +40,7 @@ interface FrameStore {
   loadFrames: () => Promise<void>;
 
   // Frame Status
+  changeStatus: (id: string, status: FrameStatus) => Promise<void>;
   submitForReview: (id: string, reviewerId?: string) => Promise<void>;
   markAsReady: (id: string) => Promise<void>;
   startFeedback: (id: string) => Promise<void>;
@@ -231,6 +232,27 @@ export const useFrameStore = create<FrameStore>()(
       },
 
       // Frame Status
+      changeStatus: async (id, newStatus) => {
+        set({ isLoading: true, error: null });
+        try {
+          const api = getAPIClient();
+          await api.updateFrameStatus(id, newStatus);
+          set((s) => ({
+            frames: s.frames.map((f) =>
+              f.id === id
+                ? { ...f, status: newStatus, updatedAt: new Date() }
+                : f
+            ),
+            isLoading: false,
+          }));
+        } catch (err) {
+          set({
+            error: err instanceof Error ? err.message : 'Failed to change status',
+            isLoading: false,
+          });
+        }
+      },
+
       submitForReview: async (id, reviewerId?) => {
         const frame = get().getFrame(id);
         if (!frame) return;

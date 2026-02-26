@@ -119,6 +119,7 @@ export interface ConversationMessage {
   timestamp: string;
   metadata?: Record<string, unknown>;
   status?: 'sent' | 'failed';
+  senderName?: string;
 }
 
 export interface ConversationState {

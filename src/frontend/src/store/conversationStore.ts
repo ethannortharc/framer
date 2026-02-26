@@ -26,7 +26,7 @@ interface ConversationStore {
 
   // Actions
   startConversation: (owner: string, purpose?: ConversationPurpose, frameId?: string) => Promise<Conversation>;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, senderName?: string) => Promise<void>;
   retryMessage: (messageId: string) => Promise<void>;
   previewFrame: () => Promise<void>;
   clearPreview: () => void;
@@ -52,6 +52,7 @@ function transformConversationResponse(response: any): Conversation {
       content: m.content,
       timestamp: m.timestamp,
       metadata: m.metadata,
+      senderName: m.sender_name,
     })),
     state: {
       frameType: response.state.frame_type,
@@ -114,7 +115,7 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
     }
   },
 
-  sendMessage: async (content) => {
+  sendMessage: async (content, senderName?) => {
     const { activeConversation } = get();
     if (!activeConversation) return;
 
@@ -126,6 +127,7 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
       role: 'user',
       content,
       timestamp: new Date().toISOString(),
+      senderName,
     };
 
     set((s) => ({
@@ -147,7 +149,8 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
       const api = getAPIClient();
       const response = await api.sendConversationMessage(
         activeConversation.id,
-        content
+        content,
+        senderName
       );
 
       const aiMsg: ConversationMessage = {
@@ -175,6 +178,7 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
                   content: response.message.content,
                   timestamp: response.message.timestamp,
                   metadata: response.message.metadata,
+                  senderName: response.message.sender_name,
                 },
                 aiMsg,
               ],
@@ -222,7 +226,7 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
     }));
 
     // Re-send through the normal sendMessage path
-    await get().sendMessage(failedMsg.content);
+    await get().sendMessage(failedMsg.content, failedMsg.senderName);
   },
 
   previewFrame: async () => {

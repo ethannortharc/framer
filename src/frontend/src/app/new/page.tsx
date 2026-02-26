@@ -165,7 +165,7 @@ export default function NewFramePage() {
           <ChatInterface
             messages={activeConversation?.messages || []}
             isTyping={isTyping}
-            onSendMessage={sendMessage}
+            onSendMessage={(content) => sendMessage(content, user?.name || user?.email)}
             onRetryMessage={retryMessage}
             disabled={!activeConversation || isLocked}
             userName={user?.name || user?.email}
