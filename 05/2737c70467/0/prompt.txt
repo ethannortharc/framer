@@ -1,0 +1,9 @@
+could you help to deploy the framer in the machine 10.83.80.29 through docker-compose, you can use zhbo account to login that machine from this machine, after deploy and testing, please tell  me the admin user and password. You may clone the github repo directly in that machine.
+
+---
+
+Once the framer into the review status, it can't change back if the review is not good to the framer, please support to chagne the status for each frame, another thing, in the chat box, if user a send the message, it will always show user a, no matter which login user it is.
+
+---
+
+[Request interrupted by user for tool use]
