@@ -1,0 +1,35 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "86a85303998c",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/backend/app/api/conversations.py",
+    "src/backend/app/models/conversation.py",
+    "src/backend/app/services/conversation_service.py",
+    "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/new/page.tsx",
+    "src/frontend/src/components/conversation/ChatInterface.tsx",
+    "src/frontend/src/lib/api/client.ts",
+    "src/frontend/src/store/conversationStore.ts",
+    "src/frontend/src/store/index.ts",
+    "src/frontend/src/types/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/86/a85303998c/0/metadata.json",
+      "transcript": "/86/a85303998c/0/full.jsonl",
+      "context": "/86/a85303998c/0/context.md",
+      "content_hash": "/86/a85303998c/0/content_hash.txt",
+      "prompt": "/86/a85303998c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 14,
+    "cache_creation_tokens": 140578,
+    "cache_read_tokens": 1249582,
+    "output_tokens": 446,
+    "api_call_count": 10
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "86a85303998c",
+  "session_id": "1ef2d5ef-61c0-473b-a877-328617e58c56",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-26T22:21:53.897846455Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/backend/app/api/conversations.py",
+    "src/backend/app/models/conversation.py",
+    "src/backend/app/services/conversation_service.py",
+    "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/new/page.tsx",
+    "src/frontend/src/components/conversation/ChatInterface.tsx",
+    "src/frontend/src/lib/api/client.ts",
+    "src/frontend/src/store/conversationStore.ts",
+    "src/frontend/src/store/index.ts",
+    "src/frontend/src/types/index.ts"
+  ],
+  "agent": "Claude Code",
+  "checkpoint_transcript_start": 420,
+  "transcript_lines_at_start": 420,
+  "token_usage": {
+    "input_tokens": 14,
+    "cache_creation_tokens": 140578,
+    "cache_read_tokens": 1249582,
+    "output_tokens": 446,
+    "api_call_count": 10
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-26T22:21:53.740511198Z",
+    "agent_lines": 107,
+    "human_added": 95,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 202,
+    "agent_percentage": 52.97029702970298
+  }
+}
