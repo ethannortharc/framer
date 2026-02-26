@@ -1,0 +1,147 @@
+Implement the following plan:
+
+# Plan: Root Cause Section, Structured Test Cases, Real-Time Language Support
+
+## Context
+Three enhancements to the framing system:
+1. **Bug frames need a Root Cause section** between Problem Statement and User Perspective
+2. **Validation Thinking should use structured test-case format** (table + checklist) instead of freeform prose
+3. **Real-time multi-language content** (EN/ZH) — all AI-generated content and frame display follows user's language preference. System UI stays English-only.
+
+---
+
+## 1. Root Cause Section for Bug Frames
+
+### Backend
+
+**`src/backend/app/models/frame.py`** — Add `root_cause: Optional[str] = None` to `FrameContent`
+- `to_markdown()`: Insert `## Root Cause` section after `# Problem Statement`
+- `from_markdown()`: Add `"## root cause": "root_cause"` to `section_map`
+
+**`src/backend/app/models/conversation.py`** — Add `"root_cause": 0.0` to `ConversationState.sections_covered` default
+
+**`src/backend/app/agents/conversation.py`** — Update prompts:
+- `SYSTEM_PROMPT`: Add root_cause as section 1b (for bug frames), add to JSON schema
+- `SYNTHESIZE_PROMPT`: Add `root_cause` field in output JSON
+- `synthesize_frame()`: Include `root_cause` in returned dict
+
+**`src/backend/app/api/conversations.py`** — Include `root_cause` in synthesis FrameContent creation
+
+**`src/backend/app/api/frames.py`** — Add `root_cause` to `FrameResponse.from_frame()` content dict
+
+### Frontend
+
+**`src/frontend/src/types/index.ts`** — Add `rootCause: string` to `Frame`, add `'root_cause'` to `FrameSection`, add `rootCause` to `ConversationState.sectionsCovered`
+
+**`src/frontend/src/lib/api/transforms.ts`** — Map `root_cause` ↔ `rootCause` in both transform directions
+
+**`src/frontend/src/lib/api/client.ts`** — Add `root_cause` to FrameResponse content type
+
+**`src/frontend/src/components/frame/FrameDocumentView.tsx`** — Render `## Root Cause` for bug frames between Problem Statement and User Perspective
+
+**`src/frontend/src/app/frame/[id]/page.tsx`** — Add root_cause to editable sections (conditionally for bug type)
+
+**`src/frontend/src/components/conversation/CoveragePanel.tsx`** — Add rootCause bar (conditionally when frameType is 'bug')
+
+---
+
+## 2. Structured Test Cases in Validation Thinking
+
+Only AI prompt changes — no model changes needed.
+
+**`src/backend/app/agents/conversation.py`**:
+- `SYSTEM_PROMPT`: Update Validation Thinking description to: "Structured test cases (scenario, steps, expected result, priority), success criteria checklist, rollback plan"
+- `SYNTHESIZE_PROMPT`: Specify markdown table format:
+  ```
+  ### Test Cases
+  | # | Scenario | Steps | Expected Result | Priority |
+  |---|----------|-------|----------------|----------|
+  | 1 | ... | ... | ... | P0 |
+
+  ### Success Criteria
+  - [ ] ...
+
+  ### Rollback Plan
+  - ...
+  ```
+
+**`src/backend/app/api/ai.py`** — Update EVALUATE_PROMPT Validation Thinking criteria to check for structured test cases
+
+---
+
+## 3. Real-Time Language Support (EN/ZH)
+
+### Approach
+- Store language preference in frontend Zustand store (persisted to localStorage)
+- Pass `language` param through API on every message send and frame synthesis
+- AI prompts prepend a language instruction so all generated content is in the chosen language
+- No backend persistence of preference (it's a client-side setting)
+
+### Backend
+
+**`src/backend/app/api/conversations.py`**:
+- Add `language: Optional[str] = None` to `SendMessageRequest`
+- Pass `language` to `agent.process_turn()`, `agent.process_review_turn()`, `agent.synthesize_frame()`
+
+**`src/backend/app/agents/conversation.py`**:
+- All AI-calling methods accept optional `language: str` parameter
+- When `language` is set, prepend to system prompt: `"IMPORTANT: You MUST respond entirely in {language_name}. All content, analysis, questions, and frame sections must be in {language_name}, regardless of what language the user writes in."`
+- `process_turn()`: inject language into system prompt
+- `synthesize_frame()`: inject language into synthesis prompt
+- `process_review_turn()`: inject language into review prompt
+
+### Frontend
+
+**`src/frontend/src/store/index.ts`**:
+- Add `contentLanguage: 'en' | 'zh'` to store (persisted), default `'en'`
+- Add `setContentLanguage` action
+
+**`src/frontend/src/lib/api/client.ts`**:
+- Add `language?: string` param to `sendConversationMessage()`
+
+**`src/frontend/src/store/conversationStore.ts`**:
+- `sendMessage()` already accepts extra params — add `language` and pass to API client
+
+**`src/frontend/src/app/new/page.tsx`**:
+- Add language toggle button (EN | ZH) in the chat header area
+- Read `contentLanguage` from frame store, pass to `sendMessage()`
+
+**`src/frontend/src/app/frame/[id]/page.tsx`**:
+- Add language toggle in the header bar (same EN/ZH button)
+
+---
+
+## Files Summary
+
+| File | Changes |
+|------|---------|
+| `src/backend/app/models/frame.py` | Add `root_cause` field, update markdown serialization |
+| `src/backend/app/models/conversation.py` | Add `root_cause` to state tracking |
+| `src/backend/app/agents/conversation.py` | Update all prompts (root cause, structured validation, language), add language param to methods |
+| `src/backend/app/api/conversations.py` | Add `language` to request, pass through to agents, include root_cause in synthesis |
+| `src/backend/app/api/frames.py` | Add `root_cause` to response |
+| `src/backend/app/api/ai.py` | Update EVALUATE_PROMPT for root cause + structured validation |
+| `src/frontend/src/types/index.ts` | Add `rootCause` to Frame, update FrameSection and ConversationState |
+| `src/frontend/src/lib/api/client.ts` | Add `root_cause` to response types, `language` to send message |
+| `src/frontend/src/lib/api/transforms.ts` | Map `root_cause` ↔ `rootCause` |
+| `src/frontend/src/store/index.ts` | Add `contentLanguage` + `setContentLanguage` |
+| `src/frontend/src/store/conversationStore.ts` | Pass `language` to API |
+| `src/frontend/src/components/frame/FrameDocumentView.tsx` | Render Root Cause for bug frames |
+| `src/frontend/src/app/frame/[id]/page.tsx` | Root cause editing for bugs, language toggle |
+| `src/frontend/src/app/new/page.tsx` | Language toggle in chat header |
+| `src/frontend/src/components/conversation/CoveragePanel.tsx` | Root cause coverage bar for bugs |
+
+## Verification
+1. `npx tsc --noEmit` in frontend, `python3 -c "from app.models.frame import FrameContent"` in backend
+2. Commit with `ethan.northarc@gmail.com`, push to GitHub
+3. Pull on 10.83.80.29, `docker-compose down && docker-compose up -d`
+4. Test: create bug frame → Root Cause section visible in edit/view
+5. Test: toggle language to ZH → AI responds in Chinese, frame content is Chinese
+6. Test: validation thinking shows structured test-case table
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+
+---
+
+commit with ethan.northarc@gmail.com, push to GitHub
