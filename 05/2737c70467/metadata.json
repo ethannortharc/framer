@@ -3,9 +3,19 @@
   "checkpoint_id": "052737c70467",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
-    "framer-dashboard.png"
+    "framer-dashboard.png",
+    "src/backend/app/api/conversations.py",
+    "src/backend/app/models/conversation.py",
+    "src/backend/app/services/conversation_service.py",
+    "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/new/page.tsx",
+    "src/frontend/src/components/conversation/ChatInterface.tsx",
+    "src/frontend/src/lib/api/client.ts",
+    "src/frontend/src/store/conversationStore.ts",
+    "src/frontend/src/store/index.ts",
+    "src/frontend/src/types/index.ts"
   ],
   "sessions": [
     {
@@ -14,13 +24,20 @@
       "context": "/05/2737c70467/0/context.md",
       "content_hash": "/05/2737c70467/0/content_hash.txt",
       "prompt": "/05/2737c70467/0/prompt.txt"
+    },
+    {
+      "metadata": "/05/2737c70467/1/metadata.json",
+      "transcript": "/05/2737c70467/1/full.jsonl",
+      "context": "/05/2737c70467/1/context.md",
+      "content_hash": "/05/2737c70467/1/content_hash.txt",
+      "prompt": "/05/2737c70467/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 59,
-    "cache_creation_tokens": 170794,
-    "cache_read_tokens": 3020878,
-    "output_tokens": 3672,
-    "api_call_count": 51
+    "input_tokens": 123,
+    "cache_creation_tokens": 286383,
+    "cache_read_tokens": 8601918,
+    "output_tokens": 13460,
+    "api_call_count": 107
   }
 }

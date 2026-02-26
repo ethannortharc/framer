@@ -1,0 +1,96 @@
+Implement the following plan:
+
+# Plan: Frame Status Change & Chat User Display Fix
+
+## Context
+Two issues in the Framer app:
+1. **Status lock-in**: Once a frame moves to "In Review", there's no way to move it back to "Draft" (or any other backward transition). Users need the ability to change status freely.
+2. **Chat sender bug**: All user messages in the conversation chat show the current logged-in user's name, even for messages sent by other users. The `ConversationMessage` model doesn't store sender info.
+
+---
+
+## Issue 1: Add Status Change Dropdown
+
+**Root cause**: The frame detail page only shows forward-progression buttons (e.g., "Mark as Ready"). No generic status change UI exists, even though the backend already accepts any status transition.
+
+### Changes
+
+**A. Add `changeStatus` action to Zustand store**
+- File: `src/frontend/src/store/index.ts`
+- Add to `FrameStore` interface: `changeStatus: (id: string, status: FrameStatus) => Promise<void>`
+- Implement: calls `api.updateFrameStatus(id, status)`, updates local state
+
+**B. Add status dropdown to frame detail header**
+- File: `src/frontend/src/app/frame/[id]/page.tsx`
+- Replace the static status `<Badge>` (line 270-272) with a `<Select>` dropdown (same pattern as the type selector at lines 254-268)
+- Options: Draft, In Review, Ready, Feedback, Archived
+- On change: call `changeStatus(frame.id, newStatus)` and update local `frame` state
+- Use existing `Select`/`SelectTrigger`/`SelectContent`/`SelectItem` components (already imported)
+
+---
+
+## Issue 2: Fix Chat User Display
+
+**Root cause**: `ConversationMessage` has no sender field. The `ChatInterface` receives a single `userName` prop (current logged-in user) and shows it for ALL user messages.
+
+### Changes
+
+**A. Add `sender_name` to backend message model**
+- File: `src/backend/app/models/conversation.py`
+- Add `sender_name: Optional[str] = None` to `ConversationMessage`
+
+**B. Store sender name when adding messages**
+- File: `src/backend/app/api/conversations.py`
+- In the `send_message` endpoint, accept optional `sender_name` in the request body
+- Pass it through to `conv_service.add_message()`
+- File: `src/backend/app/services/conversation_service.py`
+- Update `add_message()` to accept and store `sender_name`
+
+**C. Add `senderName` to frontend type**
+- File: `src/frontend/src/types/index.ts`
+- Add `senderName?: string` to `ConversationMessage` interface
+
+**D. Send sender name from frontend when posting messages**
+- File: `src/frontend/src/store/conversationStore.ts` (or wherever `sendMessage` is)
+- Include the current user's name in the API request body
+
+**E. Display per-message sender name in ChatInterface**
+- File: `src/frontend/src/components/conversation/ChatInterface.tsx`
+- Change line 128-130: use `msg.senderName || userName` instead of just `userName`
+- This provides backward compatibility (falls back to current user name for old messages without sender info)
+
+---
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/frontend/src/store/index.ts` | Add `changeStatus` action |
+| `src/frontend/src/app/frame/[id]/page.tsx` | Status dropdown in header |
+| `src/backend/app/models/conversation.py` | Add `sender_name` field |
+| `src/backend/app/api/conversations.py` | Accept `sender_name` in request |
+| `src/backend/app/services/conversation_service.py` | Store `sender_name` |
+| `src/frontend/src/types/index.ts` | Add `senderName` to message type |
+| `src/frontend/src/components/conversation/ChatInterface.tsx` | Use per-message sender |
+| `src/frontend/src/store/conversationStore.ts` | Send sender name in API call |
+
+## Verification
+1. Rebuild and redeploy Docker containers on 10.83.80.29
+2. Open a frame, verify status can be changed via dropdown in header
+3. Change a frame from "In Review" back to "Draft" - confirm it works
+4. Open conversation chat, send messages as different users, verify each message shows correct sender name
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+
+---
+
+deploy it to the machine 10.83.80.29
+
+---
+
+[Request interrupted by user for tool use]
+
+---
+
+it should be ssh zhbo@10.83.80.29, and please use the user ethan.northarc@gmail.com to push the changes to github and then pull from 10.83.80.29 and update it
