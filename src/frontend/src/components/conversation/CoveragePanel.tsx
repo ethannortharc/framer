@@ -8,32 +8,46 @@ interface CoveragePanelProps {
   state: ConversationState;
 }
 
-const sections = [
+const allSections = [
   {
     key: 'problemStatement' as const,
     label: 'Problem Statement',
     description: 'Clear, solution-free problem definition',
+    bugOnly: false,
+  },
+  {
+    key: 'rootCause' as const,
+    label: 'Root Cause',
+    description: 'Technical root cause analysis',
+    bugOnly: true,
   },
   {
     key: 'userPerspective' as const,
     label: 'User Perspective',
     description: 'Who is affected, journey, pain points',
+    bugOnly: false,
   },
   {
     key: 'engineeringFraming' as const,
     label: 'Engineering Framing',
     description: 'Principles, trade-offs, non-goals',
+    bugOnly: false,
   },
   {
     key: 'validationThinking' as const,
     label: 'Validation Thinking',
-    description: 'Success signals, falsification criteria',
+    description: 'Structured test cases, success criteria',
+    bugOnly: false,
   },
 ];
 
 export function CoveragePanel({ state }: CoveragePanelProps) {
+  const isBug = state.frameType === 'bug';
+  const sections = allSections.filter((s) => !s.bugOnly || isBug);
+  const sectionCount = sections.length;
+
   const overallCoverage =
-    Object.values(state.sectionsCovered).reduce((sum, v) => sum + v, 0) / 4;
+    sections.reduce((sum, s) => sum + (state.sectionsCovered[s.key] ?? 0), 0) / sectionCount;
 
   return (
     <div className="space-y-4">
@@ -68,7 +82,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
 
       <div className="space-y-3">
         {sections.map((section) => {
-          const value = state.sectionsCovered[section.key];
+          const value = state.sectionsCovered[section.key] ?? 0;
           const pct = Math.round(value * 100);
 
           return (

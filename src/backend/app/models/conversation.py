@@ -45,6 +45,7 @@ class ConversationState(BaseModel):
     sections_covered: dict[str, float] = Field(
         default_factory=lambda: {
             "problem_statement": 0.0,
+            "root_cause": 0.0,
             "user_perspective": 0.0,
             "engineering_framing": 0.0,
             "validation_thinking": 0.0,

@@ -18,7 +18,7 @@ export type AIIssue = string;
 
 export interface ReviewComment {
   id: string;
-  section: 'header' | 'user' | 'engineering' | 'validation';
+  section: FrameSection;
   authorId: string;
   content: string;
   createdAt: Date;
@@ -50,6 +50,7 @@ export interface Frame {
   status: FrameStatus;
   projectId?: string;
   problemStatement: string;
+  rootCause: string;
   userPerspective: string;
   engineeringFraming: string;
   validationThinking: string;
@@ -89,7 +90,7 @@ export interface ChatMessage {
 }
 
 // Section types for AI context
-export type FrameSection = 'header' | 'user' | 'engineering' | 'validation';
+export type FrameSection = 'header' | 'root_cause' | 'user' | 'engineering' | 'validation';
 
 // Project types
 export interface Project {
@@ -126,6 +127,7 @@ export interface ConversationState {
   frameType: string | null;
   sectionsCovered: {
     problemStatement: number;
+    rootCause: number;
     userPerspective: number;
     engineeringFraming: number;
     validationThinking: number;

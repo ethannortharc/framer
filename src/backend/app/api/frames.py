@@ -73,6 +73,7 @@ class FrameResponse(BaseModel):
             owner=frame.owner,
             content={
                 "problem_statement": frame.content.problem_statement,
+                "root_cause": frame.content.root_cause,
                 "user_perspective": frame.content.user_perspective,
                 "engineering_framing": frame.content.engineering_framing,
                 "validation_thinking": frame.content.validation_thinking,

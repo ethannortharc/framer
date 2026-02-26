@@ -27,6 +27,7 @@ class StartConversationRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     content: str
     sender_name: Optional[str] = None
+    language: Optional[str] = None
 
 
 class ConversationMessageResponse(BaseModel):
@@ -238,8 +239,12 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 frame_service = http_request.app.state.frame_service
                 try:
                     frame = frame_service.get_frame(conv.meta.frame_id)
+                    root_cause_part = ""
+                    if frame.content.root_cause:
+                        root_cause_part = f"## Root Cause\n{frame.content.root_cause}\n\n"
                     frame_content = (
                         f"## Problem Statement\n{frame.content.problem_statement or ''}\n\n"
+                        f"{root_cause_part}"
                         f"## User Perspective\n{frame.content.user_perspective or ''}\n\n"
                         f"## Engineering Framing\n{frame.content.engineering_framing or ''}\n\n"
                         f"## Validation Thinking\n{frame.content.validation_thinking or ''}"
@@ -252,6 +257,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                     state=conv.state,
                     user_message=request.content,
                     frame_content=frame_content,
+                    language=request.language,
                 )
             else:
                 turn = await agent.process_turn(
@@ -259,6 +265,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                     state=conv.state,
                     user_message=request.content,
                     knowledge_context=knowledge_context,
+                    language=request.language,
                 )
         except Exception as e:
             import logging
@@ -371,6 +378,7 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         frame_service = http_request.app.state.frame_service
         frame_content = FrameContent(
             problem_statement=content.get("problem_statement", ""),
+            root_cause=content.get("root_cause", ""),
             user_perspective=content.get("user_perspective", ""),
             engineering_framing=content.get("engineering_framing", ""),
             validation_thinking=content.get("validation_thinking", ""),
@@ -433,8 +441,12 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         try:
             from app.agents.evaluator import EvaluatorAgent
             evaluator = EvaluatorAgent(prompt_template=EVALUATE_PROMPT, config=config)
+            root_cause_part = ""
+            if content.get("root_cause"):
+                root_cause_part = f"## Root Cause\n{content['root_cause']}\n\n"
             eval_content = (
                 f"# Problem Statement\n{content.get('problem_statement', '')}\n\n"
+                f"{root_cause_part}"
                 f"## User Perspective\n{content.get('user_perspective', '')}\n\n"
                 f"## Engineering Framing\n{content.get('engineering_framing', '')}\n\n"
                 f"## Validation Thinking\n{content.get('validation_thinking', '')}\n"

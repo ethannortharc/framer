@@ -72,6 +72,7 @@ export function transformFrameResponse(response: FrameResponse): Frame {
     status: response.status as FrameStatus,
     projectId: response.meta.project_id ?? undefined,
     problemStatement: response.content.problem_statement || '',
+    rootCause: normalizeContent(response.content.root_cause || ''),
     userPerspective: normalizeContent(response.content.user_perspective),
     engineeringFraming: normalizeContent(response.content.engineering_framing),
     validationThinking: normalizeContent(response.content.validation_thinking),
@@ -95,12 +96,14 @@ export function transformFrameResponse(response: FrameResponse): Frame {
  */
 export function transformFrameToContent(frame: Frame): {
   problem_statement: string;
+  root_cause: string;
   user_perspective: string;
   engineering_framing: string;
   validation_thinking: string;
 } {
   return {
     problem_statement: frame.problemStatement,
+    root_cause: frame.rootCause,
     user_perspective: frame.userPerspective,
     engineering_framing: frame.engineeringFraming,
     validation_thinking: frame.validationThinking,

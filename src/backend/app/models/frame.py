@@ -153,6 +153,7 @@ class FrameMeta(BaseModel):
 class FrameContent(BaseModel):
     """Content of a frame (parsed from frame.md)."""
     problem_statement: Optional[str] = None
+    root_cause: Optional[str] = None
     user_perspective: Optional[str] = None
     engineering_framing: Optional[str] = None
     validation_thinking: Optional[str] = None
@@ -169,6 +170,18 @@ class FrameContent(BaseModel):
             "",
             self.problem_statement or "",
             "",
+        ]
+
+        # Root Cause section (bug frames)
+        if self.root_cause:
+            lines.extend([
+                "## Root Cause",
+                "",
+                self.root_cause,
+                "",
+            ])
+
+        lines.extend([
             "## User Perspective",
             "",
             self.user_perspective or "",
@@ -180,7 +193,7 @@ class FrameContent(BaseModel):
             "## Validation Thinking",
             "",
             self.validation_thinking or "",
-        ]
+        ])
         return "\n".join(lines)
 
     @classmethod
@@ -200,6 +213,7 @@ class FrameContent(BaseModel):
 
         section_map = {
             "# problem statement": "problem_statement",
+            "## root cause": "root_cause",
             "## user perspective": "user_perspective",
             "## engineering framing": "engineering_framing",
             "## validation thinking": "validation_thinking",

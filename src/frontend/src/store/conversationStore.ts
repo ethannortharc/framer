@@ -9,6 +9,7 @@ import {
 } from '@/types';
 import { getAPIClient } from '@/lib/api';
 import { useProjectStore } from './projectStore';
+import { useFrameStore } from './index';
 
 interface ConversationStore {
   // Data
@@ -58,6 +59,7 @@ function transformConversationResponse(response: any): Conversation {
       frameType: response.state.frame_type,
       sectionsCovered: {
         problemStatement: response.state.sections_covered?.problem_statement ?? 0,
+        rootCause: response.state.sections_covered?.root_cause ?? 0,
         userPerspective: response.state.sections_covered?.user_perspective ?? 0,
         engineeringFraming: response.state.sections_covered?.engineering_framing ?? 0,
         validationThinking: response.state.sections_covered?.validation_thinking ?? 0,
@@ -75,6 +77,7 @@ function transformStateResponse(state: any): ConversationState {
     frameType: state.frame_type,
     sectionsCovered: {
       problemStatement: state.sections_covered?.problem_statement ?? 0,
+      rootCause: state.sections_covered?.root_cause ?? 0,
       userPerspective: state.sections_covered?.user_perspective ?? 0,
       engineeringFraming: state.sections_covered?.engineering_framing ?? 0,
       validationThinking: state.sections_covered?.validation_thinking ?? 0,
@@ -147,10 +150,12 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
 
     try {
       const api = getAPIClient();
+      const contentLanguage = useFrameStore.getState().contentLanguage;
       const response = await api.sendConversationMessage(
         activeConversation.id,
         content,
-        senderName
+        senderName,
+        contentLanguage !== 'en' ? contentLanguage : undefined
       );
 
       const aiMsg: ConversationMessage = {

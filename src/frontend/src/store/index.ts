@@ -12,6 +12,7 @@ interface FrameStore {
   selectedFrameId: string | null;
   focusedSection: FrameSection | null;
   currentSpace: AppSpace;
+  contentLanguage: 'en' | 'zh';
 
   // Loading & Error State
   isLoading: boolean;
@@ -27,6 +28,7 @@ interface FrameStore {
   setSelectedFrame: (id: string | null) => void;
   setFocusedSection: (section: FrameSection | null) => void;
   setCurrentSpace: (space: AppSpace) => void;
+  setContentLanguage: (lang: 'en' | 'zh') => void;
   setAIConfig: (config: AIConfig | null) => void;
   setError: (error: string | null) => void;
 
@@ -69,6 +71,7 @@ export const useFrameStore = create<FrameStore>()(
       selectedFrameId: null,
       focusedSection: null,
       currentSpace: 'working',
+      contentLanguage: 'en',
 
       // Loading & Error State
       isLoading: false,
@@ -84,6 +87,7 @@ export const useFrameStore = create<FrameStore>()(
       setSelectedFrame: (id) => set({ selectedFrameId: id }),
       setFocusedSection: (section) => set({ focusedSection: section }),
       setCurrentSpace: (space) => set({ currentSpace: space, selectedFrameId: null }),
+      setContentLanguage: (lang) => set({ contentLanguage: lang }),
       setAIConfig: (config) => set({ aiConfig: config }),
       setError: (error) => set({ error }),
 
@@ -456,6 +460,7 @@ export const useFrameStore = create<FrameStore>()(
       partialize: (state) => ({
         frames: state.frames,
         aiConfig: state.aiConfig,
+        contentLanguage: state.contentLanguage,
       }),
     }
   )

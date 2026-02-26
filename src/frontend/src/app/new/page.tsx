@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Sparkles, Loader2, Lock, FileText, Eye, X } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, Lock, FileText, Eye, X, Globe } from 'lucide-react';
 import { useConversationStore } from '@/store/conversationStore';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ChatInterface } from '@/components/conversation/ChatInterface';
@@ -12,6 +12,7 @@ import { MarkdownContent } from '@/components/frame/MarkdownContent';
 import { Button } from '@/components/ui/button';
 import { getAPIClient } from '@/lib/api';
 import { transformFrameResponse } from '@/lib/api/transforms';
+import { useFrameStore } from '@/store';
 import type { Frame } from '@/types';
 
 export default function NewFramePage() {
@@ -38,6 +39,7 @@ export default function NewFramePage() {
     clearConversation,
   } = useConversationStore();
 
+  const { contentLanguage, setContentLanguage } = useFrameStore();
   const [isLocked, setIsLocked] = useState(false);
   const [linkedFrame, setLinkedFrame] = useState<Frame | null>(null);
 
@@ -98,6 +100,7 @@ export default function NewFramePage() {
     frameType: null,
     sectionsCovered: {
       problemStatement: 0,
+      rootCause: 0,
       userPerspective: 0,
       engineeringFraming: 0,
       validationThinking: 0,
@@ -142,11 +145,22 @@ export default function NewFramePage() {
                 </p>
               </div>
             </div>
-            {error && (
-              <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                {error}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Language Toggle */}
+              <button
+                onClick={() => setContentLanguage(contentLanguage === 'en' ? 'zh' : 'en')}
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                title="Toggle content language"
+              >
+                <Globe className="h-3.5 w-3.5" />
+                {contentLanguage === 'en' ? 'EN' : 'ZH'}
+              </button>
+              {error && (
+                <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                  {error}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -348,6 +362,14 @@ export default function NewFramePage() {
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">Problem Statement</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
                     <MarkdownContent content={previewContent.problem_statement} />
+                  </div>
+                </div>
+              )}
+              {previewContent.root_cause && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Root Cause</h3>
+                  <div className="prose prose-sm max-w-none text-slate-600">
+                    <MarkdownContent content={previewContent.root_cause} />
                   </div>
                 </div>
               )}

@@ -28,6 +28,7 @@ Score each section (0-25 points each, total 100):
    - Is the problem clearly defined?
    - Is the business value articulated?
    - Are success metrics defined?
+   - For bug frames: is there a root cause analysis?
 
 2. **User Perspective** (0-25)
    - Are target users identified?
@@ -41,9 +42,10 @@ Score each section (0-25 points each, total 100):
    - Are risks identified?
 
 4. **Validation Thinking** (0-25)
-   - Are acceptance criteria defined?
-   - Is there a testing plan?
-   - Is the rollout strategy reasonable?
+   - Are structured test cases provided (scenario, steps, expected result, priority)?
+   - Is there a success criteria checklist?
+   - Is there a rollback plan?
+   - Deduct points if validation is only freeform prose without structured test cases
 
 ## Response Format
 
@@ -163,9 +165,12 @@ def create_ai_router() -> APIRouter:
         evaluator = EvaluatorAgent(prompt_template=EVALUATE_PROMPT, config=config)
 
         # Build frame content string
+        root_cause_section = ""
+        if frame.content.root_cause:
+            root_cause_section = f"\n## Root Cause\n{frame.content.root_cause}\n"
         frame_content = f"""# Problem Statement
 {frame.content.problem_statement or ''}
-
+{root_cause_section}
 ## User Perspective
 {frame.content.user_perspective or ''}
 

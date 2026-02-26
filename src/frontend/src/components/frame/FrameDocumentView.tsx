@@ -19,6 +19,10 @@ function buildDocument(frame: Frame): string {
     parts.push(`## Problem Statement\n\n${frame.problemStatement.trim()}`);
   }
 
+  if (frame.rootCause && frame.rootCause.trim()) {
+    parts.push(`## Root Cause\n\n${frame.rootCause.trim()}`);
+  }
+
   if (frame.userPerspective.trim()) {
     parts.push(`## User Perspective\n\n${frame.userPerspective.trim()}`);
   }

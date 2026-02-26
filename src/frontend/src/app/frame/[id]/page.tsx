@@ -37,6 +37,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  Globe,
 } from 'lucide-react';
 
 function formatHistoryTimestamp(ts: string): string {
@@ -54,11 +55,19 @@ function formatHistoryTimestamp(ts: string): string {
 }
 
 // Section config for draft editing
-const sections = [
-  { key: 'user' as FrameSectionType, title: 'User Perspective', field: 'userPerspective' as const, placeholder: 'Describe who is affected, their context, journey, and pain points...\n\nSupports **markdown**: headings, lists, bold, code blocks.' },
-  { key: 'engineering' as FrameSectionType, title: 'Engineering Framing', field: 'engineeringFraming' as const, placeholder: 'Define key principles, trade-offs, and explicit non-goals...\n\nSupports **markdown**: headings, lists, bold, code blocks.' },
-  { key: 'validation' as FrameSectionType, title: 'Validation Thinking', field: 'validationThinking' as const, placeholder: 'Describe success signals and what would disprove your approach...\n\nSupports **markdown**: headings, lists, bold, code blocks.' },
+const baseSections = [
+  { key: 'user' as FrameSectionType, title: 'User Perspective', field: 'userPerspective' as const, placeholder: 'Describe who is affected, their context, journey, and pain points...\n\nSupports **markdown**: headings, lists, bold, code blocks.', bugOnly: false },
+  { key: 'engineering' as FrameSectionType, title: 'Engineering Framing', field: 'engineeringFraming' as const, placeholder: 'Define key principles, trade-offs, and explicit non-goals...\n\nSupports **markdown**: headings, lists, bold, code blocks.', bugOnly: false },
+  { key: 'validation' as FrameSectionType, title: 'Validation Thinking', field: 'validationThinking' as const, placeholder: 'Describe success signals and what would disprove your approach...\n\nSupports **markdown**: headings, lists, bold, code blocks.', bugOnly: false },
 ] as const;
+
+const rootCauseSection = {
+  key: 'root_cause' as FrameSectionType,
+  title: 'Root Cause',
+  field: 'rootCause' as const,
+  placeholder: 'What is the technical root cause? Why did this happen?\n\nSupports **markdown**: headings, lists, bold, code blocks.',
+  bugOnly: true,
+} as const;
 
 export default function FrameDetailPage() {
   const router = useRouter();
@@ -82,6 +91,8 @@ export default function FrameDetailPage() {
     isFrameSaved,
     evaluateFrame: triggerEvaluate,
     isLoading,
+    contentLanguage,
+    setContentLanguage,
   } = useFrameStore();
 
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -289,6 +300,15 @@ export default function FrameDetailPage() {
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
+              {/* Language Toggle */}
+              <button
+                onClick={() => setContentLanguage(contentLanguage === 'en' ? 'zh' : 'en')}
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors h-8"
+                title="Toggle content language"
+              >
+                <Globe className="h-3.5 w-3.5" />
+                {contentLanguage === 'en' ? 'EN' : 'ZH'}
+              </button>
               {isDraft && (
                 <Button
                   variant="outline"
@@ -367,8 +387,26 @@ export default function FrameDetailPage() {
 
                 <hr className="border-slate-100" />
 
+                {/* Root Cause (bug frames only) */}
+                {frame.type === 'bug' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                      {rootCauseSection.title}
+                    </label>
+                    <Textarea
+                      value={frame.rootCause}
+                      onChange={(e) =>
+                        handleUpdateFrame({ rootCause: e.target.value })
+                      }
+                      onFocus={() => handleSectionFocus(rootCauseSection.key)}
+                      placeholder={rootCauseSection.placeholder}
+                      className="min-h-[150px] border-slate-200 bg-slate-50 focus-visible:ring-1 resize-y font-mono text-sm"
+                    />
+                  </div>
+                )}
+
                 {/* Content Sections */}
-                {sections.map(({ key, title, field, placeholder }) => (
+                {baseSections.map(({ key, title, field, placeholder }) => (
                   <div key={key}>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                       {title}

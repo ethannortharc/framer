@@ -50,6 +50,7 @@ export interface FrameResponse {
   owner: string;
   content: {
     problem_statement: string;
+    root_cause?: string;
     user_perspective: string;
     engineering_framing: string;
     validation_thinking: string;
@@ -323,6 +324,7 @@ export class FramerAPIClient {
     project_id?: string;
     content?: {
       problem_statement?: string;
+      root_cause?: string;
       user_perspective?: string;
       engineering_framing?: string;
       validation_thinking?: string;
@@ -339,6 +341,7 @@ export class FramerAPIClient {
    */
   async updateFrame(id: string, content: {
     problem_statement?: string;
+    root_cause?: string;
     user_perspective?: string;
     engineering_framing?: string;
     validation_thinking?: string;
@@ -534,13 +537,16 @@ export class FramerAPIClient {
   async sendConversationMessage(
     convId: string,
     content: string,
-    senderName?: string
+    senderName?: string,
+    language?: string
   ): Promise<SendMessageResponse> {
+    const body: Record<string, string | undefined> = { content, sender_name: senderName };
+    if (language) body.language = language;
     return this.request<SendMessageResponse>(
       `/api/conversations/${convId}/message`,
       {
         method: 'POST',
-        body: { content, sender_name: senderName },
+        body,
       }
     );
   }
