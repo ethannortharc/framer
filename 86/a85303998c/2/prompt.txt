@@ -1,0 +1,384 @@
+Implement the following plan:
+
+# Plan: Dual-Language (EN/ZH) Content Storage and Display
+
+## Context
+The current language implementation tells the AI to respond in a single language based on the toggle. The user wants **both EN and ZH versions stored for all content** — every conversation message and every frame section. When the language toggle is switched, the entire UI displays the corresponding version. Each message exchange produces both language versions via a post-response translation step.
+
+---
+
+## Approach
+
+After the AI produces its primary response, make a **separate translation AI call** to translate both the user's message and the AI response to the other language. Store both versions on every message. Same approach for frame synthesis — synthesize first, then translate all sections. Translation failure is non-fatal (log + proceed with primary only).
+
+Backward compatible: all new fields are Optional, display falls back to `content` when bilingual fields are missing.
+
+---
+
+## 1. Backend Model Changes
+
+### `src/backend/app/models/conversation.py`
+- **ConversationMessage**: Add `content_en: Optional[str] = None`, `content_zh: Optional[str] = None`
+
+### `src/backend/app/agents/conversation.py`
+- **ConversationTurn**: Add fields: `response_en: Optional[str] = None`, `response_zh: Optional[str] = None`, `user_content_en: Optional[str] = None`, `user_content_zh: Optional[str] = None`
+
+### `src/backend/app/models/frame.py`
+- **FrameContent**: Add `translations: Optional[dict[str, dict[str, str]]] = None`
+  - Structure: `{"en": {"problem_statement": "...", ...}, "zh": {"problem_statement": "...", ...}}`
+  - Add `to_translations_json() -> str` method
+  - Add `@classmethod apply_translations(content, json_str) -> FrameContent` method
+  - No changes to `to_markdown()`/`from_markdown()` — translations stored separately
+
+---
+
+## 2. Backend Translation Logic
+
+### `src/backend/app/agents/conversation.py`
+
+**Add `TRANSLATE_PROMPT`** — batch translate a JSON dict of key→text pairs, preserve markdown.
+
+**Add `translate_texts()` method:**
+```
+async def translate_texts(self, texts: dict[str, str], source_lang: str, target_lang: str) -> dict[str, str]
+```
+- Single AI call, JSON response format
+- Returns same keys with translated values
+
+**Modify `process_turn()`** — after existing AI call:
+1. Determine `primary_lang` = `language or "en"`, `other_lang` = opposite
+2. Call `translate_texts({"user_message": user_msg, "ai_response": response}, primary_lang, other_lang)`
+3. Set `user_content_en/zh` and `response_en/zh` on ConversationTurn
+4. try/except: translation failure logs warning, continues without bilingual fields
+
+**Modify `process_review_turn()`** — same pattern after the primary text call.
+
+**Modify `synthesize_frame()`** — after primary synthesis:
+1. Translate all non-empty sections to other language
+2. Return dict with 15 keys: 5 primary + 5 `_en` + 5 `_zh`
+
+---
+
+## 3. Backend Service Changes
+
+### `src/backend/app/services/conversation_service.py`
+- **`add_message()`**: Add `content_en`, `content_zh` params → pass to ConversationMessage
+- **`_write_messages()`**: Include `content_en`, `content_zh` in JSON output
+- **`_read_messages()`**: Read via `.get("content_en")` for backward compat with old messages
+
+### `src/backend/app/services/frame_service.py`
+- **`create_frame()`**: Write `translations.json` alongside `frame.md` if translations exist
+- **`get_frame()`**: Read `translations.json` if it exists, call `apply_translations()`
+- **`update_frame_content()`**: Write/update `translations.json`
+
+---
+
+## 4. Backend API Changes
+
+### `src/backend/app/api/conversations.py`
+- **`ConversationMessageResponse`**: Add `content_en: Optional[str] = None`, `content_zh: Optional[str] = None`
+- **`_to_conv_response()`**: Pass through bilingual fields from message model
+- **`send_message` endpoint**: Pass bilingual fields from ConversationTurn to `add_message()`:
+  - User msg: `content_en=turn.user_content_en, content_zh=turn.user_content_zh`
+  - AI msg: `content_en=turn.response_en, content_zh=turn.response_zh`
+- **`synthesize` endpoint**: Build FrameContent translations dict from bilingual keys
+- **`preview` endpoint**: Return bilingual keys in content dict
+
+### `src/backend/app/api/frames.py`
+- **`FrameResponse.from_frame()`**: Add `_en` and `_zh` keys for each section from `frame.content.translations`
+
+---
+
+## 5. Frontend Type & Data Changes
+
+### `src/frontend/src/types/index.ts`
+- **ConversationMessage**: Add `contentEn?: string`, `contentZh?: string`
+- **Frame**: Add `problemStatementEn/Zh?`, `rootCauseEn/Zh?`, `userPerspectiveEn/Zh?`, `engineeringFramingEn/Zh?`, `validationThinkingEn/Zh?`
+
+### `src/frontend/src/lib/api/client.ts`
+- **SendMessageResponse**: Add `content_en?`, `content_zh?` to `message` and `ai_response`
+- **FrameResponse.content**: Add `_en?` and `_zh?` for each section
+
+### `src/frontend/src/lib/api/transforms.ts`
+- **Add `pickLang()` utility**: `(primary, en?, zh?, lang) => en||primary` for 'en', `zh||primary` for 'zh'
+- **`transformFrameResponse()`**: Map all bilingual frame fields
+
+### `src/frontend/src/store/conversationStore.ts`
+- **`transformConversationResponse()`**: Map `content_en`→`contentEn`, `content_zh`→`contentZh`
+- **`sendMessage()`**: Include bilingual fields on both user and AI messages from response
+
+---
+
+## 6. Frontend Display Changes
+
+### `src/frontend/src/components/conversation/ChatInterface.tsx`
+- Import `useFrameStore` + `pickLang`
+- Read `contentLanguage` from store
+- Render: `pickLang(msg.content, msg.contentEn, msg.contentZh, contentLanguage)` instead of `msg.content`
+
+### `src/frontend/src/components/frame/FrameDocumentView.tsx`
+- Import `useFrameStore` + `pickLang`
+- `buildDocument(frame, lang)` uses `pickLang()` for each section
+- Component reads `contentLanguage` from store
+
+### `src/frontend/src/app/new/page.tsx`
+- Preview modal: Use `pickLang`-style helper on `previewContent` snake_case dict
+- Review sidebar: Apply `pickLang()` to `linkedFrame` fields
+
+### `src/frontend/src/app/frame/[id]/page.tsx`
+- Document view delegates to FrameDocumentView (auto language-aware)
+- Edit mode: No change — always edits primary; translations regenerate on re-synthesize
+
+---
+
+## Files Summary
+
+| File | Changes |
+|------|---------|
+| `src/backend/app/models/conversation.py` | Add `content_en`, `content_zh` to ConversationMessage |
+| `src/backend/app/models/frame.py` | Add `translations` dict + helper methods to FrameContent |
+| `src/backend/app/agents/conversation.py` | Add `translate_texts()`, bilingual on ConversationTurn, modify process_turn/synthesize/review |
+| `src/backend/app/services/conversation_service.py` | Bilingual params in add_message, read/write messages |
+| `src/backend/app/services/frame_service.py` | Read/write translations.json alongside frame.md |
+| `src/backend/app/api/conversations.py` | Bilingual response fields, pass through to services |
+| `src/backend/app/api/frames.py` | Return bilingual content in FrameResponse |
+| `src/frontend/src/types/index.ts` | Bilingual fields on ConversationMessage + Frame |
+| `src/frontend/src/lib/api/client.ts` | Update response types with bilingual fields |
+| `src/frontend/src/lib/api/transforms.ts` | Add `pickLang()` utility, map bilingual fields |
+| `src/frontend/src/store/conversationStore.ts` | Map bilingual fields in transforms |
+| `src/frontend/src/components/conversation/ChatInterface.tsx` | `pickLang()` for message display |
+| `src/frontend/src/components/frame/FrameDocumentView.tsx` | Language-aware `buildDocument()` |
+| `src/frontend/src/app/new/page.tsx` | Preview modal + review sidebar bilingual |
+
+---
+
+## Verification
+1. `npx tsc --noEmit` in frontend — no type errors
+2. `python3 -c "from app.models.frame import FrameContent; from app.models.conversation import ConversationMessage"` in backend
+3. Test: Send message → both EN/ZH stored and returned in response
+4. Test: Toggle to ZH → entire conversation displays in Chinese
+5. Test: Synthesize frame → translations.json created with both languages
+6. Test: Old conversations (without bilingual fields) still display correctly via fallback
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+
+---
+
+commit to github through the account ethan.northarc@gmail.com and redeploy it to ssh zhbo@10.83.80.29, for the machine 10.83.80.29, please help to write a skill and store them to the correct place for this project, avoid to commit to github
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me chronologically analyze the conversation:
+
+1. The user provided a detailed implementation plan for dual-language (EN/ZH) content storage and display in the Framer project.
+
+2. I created task items to track progress, then read all the key files to understand the codebase:
+   - Backend: models (conversation.py, frame.py), agents (conversation.py), services (conversation_service.py, frame_service.py), API routes (conversations.py, frames.py)
+   - Frontend: types (index.ts), API client (client.ts), transforms (transforms.ts), stores (conversationStore.ts, index.ts), components (ChatInterface.tsx, FrameDocumentView.tsx), pages (new/page.tsx, frame/[id]/page.tsx)
+
+3. I dispatched parallel agents for backend and frontend implementation.
+
+4. The backend agent made changes to all 7 backend files + created migration_service.py.
+
+5. While the agents were working, the user sent an additional message: "it's better to also check and translate the existing contents to 2 languages at the redeployment or starting of the project, to make compatibility with the existing data."
+
+6. After the agents completed, I addressed the user's additional request by creating a migration_service.py and hooking it into main.py's startup.
+
+7. Both backend and frontend verification passed (Python imports OK, TypeScript `npx tsc --noEmit` passed with zero errors).
+
+8. The user then asked to: "commit to github through the account ethan.northarc@gmail.com and redeploy it to ssh zhbo@10.83.80.29, for the machine 10.83.80.29, please help to write a skill and store them to the correct place for this project, avoid to commit to github"
+
+9. I explored the deployment setup, found:
+   - Remote: zhbo@10.83.80.29, project at ~/projects/framer
+   - Git remote: https://github.com/ethannortharc/framer.git
+   - Docker-compose with 3 services (pocketbase, backend, frontend)
+   - .env on remote with server-specific URLs
+
+10. I committed all changes and pushed to GitHub successfully.
+
+11. I created a deployment skill at `/home/hongbozhou/.claude/skills/deploy-framer.md` (stored in .claude/ which is .gitignored, so not committed to GitHub).
+
+12. I started the deployment: pulled code on remote, then kicked off `docker-compose build --no-cache` in background.
+
+13. The build completed successfully - both backend and frontend Docker images built without errors. The frontend TypeScript compilation passed inside the Docker build.
+
+14. The conversation was interrupted for summary BEFORE running `docker-compose up -d` to actually restart the services.
+
+Let me now compile all the details.
+
+Summary:
+1. Primary Request and Intent:
+   The user requested implementation of a dual-language (EN/ZH) content storage and display system for the Framer project. The plan specified:
+   - Store both English and Chinese versions for every conversation message and frame section
+   - After each AI response, make a separate translation AI call to produce the other language version
+   - When the language toggle is switched, the entire UI displays the corresponding version
+   - All new fields are Optional for backward compatibility
+   
+   The user later added a requirement to translate existing data at startup/redeployment for backward compatibility with existing data.
+   
+   The user then requested: commit to GitHub (account ethan.northarc@gmail.com), redeploy to SSH zhbo@10.83.80.29, and create a deployment skill stored in `.claude/skills/` (not committed to GitHub).
+
+2. Key Technical Concepts:
+   - **Backend**: FastAPI with factory pattern (`create_app()`), Pydantic models, file-based storage (YAML/JSON/MD per entity)
+   - **Frontend**: Next.js App Router, Zustand stores, TypeScript, snake_case↔camelCase transforms
+   - **AI Translation**: Post-response translation step using the existing AI agent infrastructure (OpenAI/Anthropic providers)
+   - **Bilingual Storage**: `content_en`/`content_zh` on messages, `translations.json` alongside `frame.md` for frames
+   - **`pickLang()` utility**: Frontend helper that selects content based on language toggle with fallback
+   - **Startup Migration**: Background task that backfills translations for existing data using CJK character ratio heuristic for language detection
+   - **Docker Compose**: 3 services (pocketbase, backend, frontend) deployed to remote server
+   - **Deployment Skill**: Stored in `~/.claude/skills/deploy-framer.md`, excluded from git via `.gitignore` pattern on `.claude/`
+
+3. Files and Code Sections:
+
+   - **`src/backend/app/models/conversation.py`**
+     - Added bilingual fields to ConversationMessage
+     ```python
+     content_en: Optional[str] = None
+     content_zh: Optional[str] = None
+     ```
+
+   - **`src/backend/app/models/frame.py`**
+     - Added translations dict to FrameContent (stored separately from markdown)
+     ```python
+     translations: Optional[dict[str, dict[str, str]]] = None
+     ```
+
+   - **`src/backend/app/agents/conversation.py`**
+     - Added `TRANSLATE_PROMPT` constant for batch translation
+     - Added bilingual fields to `ConversationTurn`:
+     ```python
+     response_en: Optional[str] = None
+     response_zh: Optional[str] = None
+     user_content_en: Optional[str] = None
+     user_content_zh: Optional[str] = None
+     ```
+     - Added `translate_texts()` method to `ConversationAgent`:
+     ```python
+     async def translate_texts(
+         self, texts: dict[str, str], source_lang: str, target_lang: str
+     ) -> dict[str, str]:
+     ```
+     - Modified `process_turn()`: After creating ConversationTurn, adds bilingual translation step (try/except, non-fatal)
+     - Modified `process_review_turn()`: Same bilingual pattern
+     - Modified `synthesize_frame()`: After primary synthesis, translates all sections and adds `{key}_en`/`{key}_zh` entries to returned dict
+
+   - **`src/backend/app/services/conversation_service.py`**
+     - `add_message()`: Added `content_en`, `content_zh` params
+     - `_write_messages()`: Includes `content_en`, `content_zh` in JSON
+     - `_read_messages()`: Reads `content_en`, `content_zh` via `.get()` for backward compat
+
+   - **`src/backend/app/services/frame_service.py`**
+     - `create_frame()`: Writes `translations.json` if content.translations exists
+     - `get_frame()`: Reads `translations.json` if it exists, attaches to content
+     - `update_frame_content()`: Writes/updates/deletes `translations.json`
+
+   - **`src/backend/app/services/migration_service.py`** (NEW)
+     - `_detect_language()`: CJK character ratio heuristic (>30% = Chinese)
+     - `backfill_conversation_translations()`: Scans all conversations, translates messages missing bilingual fields
+     - `backfill_frame_translations()`: Scans all frames missing `translations.json`, creates them
+     - `run_translation_migration()`: Orchestrates both, called as background task at startup
+
+   - **`src/backend/app/api/conversations.py`**
+     - `ConversationMessageResponse`: Added `content_en`, `content_zh`
+     - `_to_conv_response()`: Passes bilingual fields from model
+     - `send_message` endpoint: Passes bilingual fields from ConversationTurn to `add_message()` for both user and AI messages
+     - `SendMessageResponse` construction: Includes bilingual fields in both `message` and `ai_response`
+     - `synthesize` endpoint: Builds translations dict from `_en`/`_zh` suffixed keys, passes to FrameContent constructor
+
+   - **`src/backend/app/api/frames.py`**
+     - `FrameResponse.from_frame()`: Builds content_dict, then flattens `frame.content.translations` into `{key}_{lang}` entries
+
+   - **`src/backend/app/main.py`**
+     - Added `asyncio`, `logging`, imports
+     - Added `@app.on_event("startup")` handler that schedules `run_translation_migration()` as a background task
+     - Controlled by `MIGRATE_TRANSLATIONS` env var (default `true`)
+
+   - **`src/frontend/src/types/index.ts`**
+     - `ConversationMessage`: Added `contentEn?: string`, `contentZh?: string`
+     - `Frame`: Added 10 bilingual fields (`problemStatementEn/Zh`, `rootCauseEn/Zh`, etc.)
+
+   - **`src/frontend/src/lib/api/client.ts`**
+     - `FrameResponse.content`: Added 10 `_en`/`_zh` optional fields
+     - `ConversationResponse.messages`: Added `content_en?`, `content_zh?`
+     - `SendMessageResponse.message` and `.ai_response`: Added `content_en?`, `content_zh?`
+
+   - **`src/frontend/src/lib/api/transforms.ts`**
+     - Added exported `pickLang()` utility:
+     ```typescript
+     export function pickLang(
+       primary: string,
+       en: string | undefined,
+       zh: string | undefined,
+       lang: 'en' | 'zh'
+     ): string {
+       if (lang === 'zh') return zh || primary;
+       return en || primary;
+     }
+     ```
+     - `transformFrameResponse()`: Maps all 10 bilingual fields from response
+
+   - **`src/frontend/src/store/conversationStore.ts`**
+     - `transformConversationResponse()`: Maps `content_en`→`contentEn`, `content_zh`→`contentZh`
+     - `sendMessage()`: Maps bilingual fields on both `aiMsg` and real user message replacement
+
+   - **`src/frontend/src/components/conversation/ChatInterface.tsx`**
+     - Added imports for `useFrameStore` and `pickLang`
+     - Added `contentLanguage` from store
+     - Message render: `pickLang(msg.content, msg.contentEn, msg.contentZh, contentLanguage)`
+
+   - **`src/frontend/src/components/frame/FrameDocumentView.tsx`**
+     - `buildDocument(frame, lang)`: Changed to accept lang param, uses `pickLang()` for each section
+     - Component reads `contentLanguage` from `useFrameStore`
+
+   - **`src/frontend/src/app/new/page.tsx`**
+     - Added `pickLang` import
+     - Preview modal: All 5 `<MarkdownContent>` calls use `pickLang()` with `_en`/`_zh` keys from `previewContent`
+     - Review sidebar: All 4 linkedFrame field displays use `pickLang()`
+
+   - **`/home/hongbozhou/.claude/skills/deploy-framer.md`** (NEW - not in git)
+     - Deployment skill documenting: SSH target, project path, git remote, .env config
+     - Steps: git pull, docker-compose build --no-cache, docker-compose up -d, verify health
+     - Rollback instructions
+     - Notes about data persistence and migration
+
+4. Errors and fixes:
+   - No code errors were encountered. Both `python3 -c "from app.models..."` and `npx tsc --noEmit` passed cleanly.
+   - The Docker build on the remote server completed successfully with no errors.
+
+5. Problem Solving:
+   - Solved backward compatibility: All new fields are Optional, `_read_messages()` uses `.get()`, `get_frame()` only reads `translations.json` if it exists
+   - Solved existing data migration: Created `migration_service.py` with language detection heuristic and non-blocking background task
+   - Solved skill storage: `.claude/` is in `.gitignore`, so the skill at `~/.claude/skills/deploy-framer.md` won't be committed
+   - Deployment: Successfully pulled code on remote, built Docker images (both backend and frontend compiled without errors)
+
+6. All user messages:
+   - "Implement the following plan: [detailed dual-language implementation plan with 7 sections covering backend models, translation logic, services, APIs, frontend types, transforms, and display changes]"
+   - "it's better to also check and translate the existing contents to 2 languages at the redeployment or starting of the project, to make comptablity with the existing data."
+   - "commit to github through the account ethan.northarc@gmail.com and redeploy it to ssh zhbo@10.83.80.29, for the machine 10.83.80.29, please help to write a skill and store them to the correct place for this project, avoid to commit to github"
+
+7. Pending Tasks:
+   - **Restart containers on remote**: `docker-compose build` completed successfully, but `docker-compose up -d` has NOT been run yet to actually restart the services with the new images.
+   - **Verify deployment**: After `docker-compose up -d`, need to verify all 3 services are healthy and check backend logs for migration output.
+
+8. Current Work:
+   The Docker build on the remote server (zhbo@10.83.80.29) completed successfully. The build output shows:
+   - Backend image `framer_backend:latest` built successfully
+   - Frontend image `framer_frontend:latest` built successfully (TypeScript compiled, Next.js build passed)
+   
+   The next step in the deployment sequence is to run `docker-compose up -d` to restart the containers with the newly built images, then verify health.
+
+9. Optional Next Step:
+   Run `docker-compose up -d` on the remote server to restart containers with the new images, then verify all 3 framer services are healthy. This directly continues the deployment that was in progress per the user's request: "redeploy it to ssh zhbo@10.83.80.29". The build completed but the containers haven't been restarted yet.
+   
+   Commands to run:
+   ```bash
+   ssh zhbo@10.83.80.29 "cd ~/projects/framer && docker-compose up -d"
+   ssh zhbo@10.83.80.29 "docker ps --format 'table {{.Names}}\t{{.Status}}' | grep framer"
+   ```
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.claude/projects/-home-hongbozhou-projects-poc-framer/d6ce00a5-010b-4b10-a1aa-11c2e21b1693.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.

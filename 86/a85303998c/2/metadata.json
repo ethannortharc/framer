@@ -1,0 +1,30 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "86a85303998c",
+  "session_id": "d6ce00a5-010b-4b10-a1aa-11c2e21b1693",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-26T23:17:36.308451176Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/backend/app/main.py",
+    "src/backend/app/services/migration_service.py"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 61,
+    "cache_creation_tokens": 155089,
+    "cache_read_tokens": 6229559,
+    "output_tokens": 6248,
+    "api_call_count": 53
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-26T23:17:36.090419015Z",
+    "agent_lines": 224,
+    "human_added": 299,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 523,
+    "agent_percentage": 42.829827915869984
+  }
+}
