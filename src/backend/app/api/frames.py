@@ -66,18 +66,25 @@ class FrameResponse(BaseModel):
 
     @classmethod
     def from_frame(cls, frame: Frame) -> "FrameResponse":
+        content_dict = {
+            "problem_statement": frame.content.problem_statement,
+            "root_cause": frame.content.root_cause,
+            "user_perspective": frame.content.user_perspective,
+            "engineering_framing": frame.content.engineering_framing,
+            "validation_thinking": frame.content.validation_thinking,
+        }
+        # Add bilingual translations if available
+        if frame.content.translations:
+            for lang, sections in frame.content.translations.items():
+                for key, value in sections.items():
+                    content_dict[f"{key}_{lang}"] = value
+
         return cls(
             id=frame.id,
             type=frame.type.value,
             status=frame.status.value,
             owner=frame.owner,
-            content={
-                "problem_statement": frame.content.problem_statement,
-                "root_cause": frame.content.root_cause,
-                "user_perspective": frame.content.user_perspective,
-                "engineering_framing": frame.content.engineering_framing,
-                "validation_thinking": frame.content.validation_thinking,
-            },
+            content=content_dict,
             meta={
                 "created_at": frame.meta.created_at.isoformat(),
                 "updated_at": frame.meta.updated_at.isoformat(),

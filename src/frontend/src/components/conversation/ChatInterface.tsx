@@ -5,6 +5,8 @@ import { Send, Loader2, User, Bot, RotateCcw } from 'lucide-react';
 import { ConversationMessage } from '@/types';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useFrameStore } from '@/store';
+import { pickLang } from '@/lib/api/transforms';
 
 interface ChatInterfaceProps {
   messages: ConversationMessage[];
@@ -25,6 +27,7 @@ export function ChatInterface({
   userName,
   botName = 'Coach',
 }: ChatInterfaceProps) {
+  const contentLanguage = useFrameStore((s) => s.contentLanguage);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -103,7 +106,7 @@ export function ChatInterface({
                     : 'bg-slate-100 text-slate-800'
                 )}
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                <p className="whitespace-pre-wrap">{pickLang(msg.content, msg.contentEn, msg.contentZh, contentLanguage)}</p>
               </div>
               {msg.status === 'failed' && (
                 <div className="flex items-center gap-1.5">

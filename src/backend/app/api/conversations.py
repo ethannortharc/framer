@@ -37,6 +37,8 @@ class ConversationMessageResponse(BaseModel):
     timestamp: str
     metadata: Optional[dict[str, Any]] = None
     sender_name: Optional[str] = None
+    content_en: Optional[str] = None
+    content_zh: Optional[str] = None
 
 
 class ConversationStateResponse(BaseModel):
@@ -106,6 +108,8 @@ def _to_conv_response(conv) -> ConversationResponse:
                 timestamp=m.timestamp.isoformat(),
                 metadata=m.metadata,
                 sender_name=m.sender_name,
+                content_en=m.content_en,
+                content_zh=m.content_zh,
             )
             for m in conv.messages
         ],
@@ -276,8 +280,14 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
             )
 
         # Save user message and AI response only after successful AI call
-        user_msg = conv_service.add_message(conv_id, "user", request.content, sender_name=request.sender_name)
-        ai_msg = conv_service.add_message(conv_id, "assistant", turn.response)
+        user_msg = conv_service.add_message(
+            conv_id, "user", request.content, sender_name=request.sender_name,
+            content_en=turn.user_content_en, content_zh=turn.user_content_zh,
+        )
+        ai_msg = conv_service.add_message(
+            conv_id, "assistant", turn.response,
+            content_en=turn.response_en, content_zh=turn.response_zh,
+        )
 
         # Update state
         conv_service.update_state(conv_id, turn.updated_state)
@@ -290,6 +300,8 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 timestamp=user_msg.timestamp.isoformat(),
                 metadata=user_msg.metadata,
                 sender_name=user_msg.sender_name,
+                content_en=user_msg.content_en,
+                content_zh=user_msg.content_zh,
             ),
             ai_response=ConversationMessageResponse(
                 id=ai_msg.id,
@@ -297,6 +309,8 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
                 content=ai_msg.content,
                 timestamp=ai_msg.timestamp.isoformat(),
                 metadata=ai_msg.metadata,
+                content_en=ai_msg.content_en,
+                content_zh=ai_msg.content_zh,
             ),
             state=ConversationStateResponse(
                 frame_type=turn.updated_state.frame_type,
@@ -376,12 +390,26 @@ def create_conversations_router(require_auth: bool = False) -> APIRouter:
         frame_type = FrameType(frame_type_str)
 
         frame_service = http_request.app.state.frame_service
+
+        # Build translations dict from bilingual synthesis keys
+        translations = None
+        section_keys = ["problem_statement", "root_cause", "user_perspective", "engineering_framing", "validation_thinking"]
+        has_en = any(content.get(f"{k}_en") for k in section_keys)
+        has_zh = any(content.get(f"{k}_zh") for k in section_keys)
+        if has_en or has_zh:
+            translations = {}
+            if has_en:
+                translations["en"] = {k: content.get(f"{k}_en", "") for k in section_keys}
+            if has_zh:
+                translations["zh"] = {k: content.get(f"{k}_zh", "") for k in section_keys}
+
         frame_content = FrameContent(
             problem_statement=content.get("problem_statement", ""),
             root_cause=content.get("root_cause", ""),
             user_perspective=content.get("user_perspective", ""),
             engineering_framing=content.get("engineering_framing", ""),
             validation_thinking=content.get("validation_thinking", ""),
+            translations=translations,
         )
 
         # If already synthesized with a linked frame, update existing frame

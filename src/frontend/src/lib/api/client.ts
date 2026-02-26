@@ -54,6 +54,16 @@ export interface FrameResponse {
     user_perspective: string;
     engineering_framing: string;
     validation_thinking: string;
+    problem_statement_en?: string;
+    problem_statement_zh?: string;
+    root_cause_en?: string;
+    root_cause_zh?: string;
+    user_perspective_en?: string;
+    user_perspective_zh?: string;
+    engineering_framing_en?: string;
+    engineering_framing_zh?: string;
+    validation_thinking_en?: string;
+    validation_thinking_zh?: string;
   };
   meta: {
     created_at: string;
@@ -129,6 +139,8 @@ export interface ConversationResponse {
     timestamp: string;
     metadata?: Record<string, unknown>;
     sender_name?: string;
+    content_en?: string;
+    content_zh?: string;
   }>;
   state: {
     frame_type: string | null;
@@ -159,6 +171,8 @@ export interface SendMessageResponse {
     timestamp: string;
     metadata?: Record<string, unknown>;
     sender_name?: string;
+    content_en?: string;
+    content_zh?: string;
   };
   ai_response: {
     id: string;
@@ -166,6 +180,8 @@ export interface SendMessageResponse {
     content: string;
     timestamp: string;
     metadata?: Record<string, unknown>;
+    content_en?: string;
+    content_zh?: string;
   };
   state: {
     frame_type: string | null;

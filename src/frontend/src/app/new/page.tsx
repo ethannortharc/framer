@@ -11,7 +11,7 @@ import { KnowledgeCards } from '@/components/conversation/KnowledgeCards';
 import { MarkdownContent } from '@/components/frame/MarkdownContent';
 import { Button } from '@/components/ui/button';
 import { getAPIClient } from '@/lib/api';
-import { transformFrameResponse } from '@/lib/api/transforms';
+import { transformFrameResponse, pickLang } from '@/lib/api/transforms';
 import { useFrameStore } from '@/store';
 import type { Frame } from '@/types';
 
@@ -201,13 +201,13 @@ export default function NewFramePage() {
               <div className="space-y-3">
                 <div>
                   <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Problem</h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">{linkedFrame.problemStatement}</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">{pickLang(linkedFrame.problemStatement, linkedFrame.problemStatementEn, linkedFrame.problemStatementZh, contentLanguage)}</p>
                 </div>
                 {linkedFrame.userPerspective && (
                   <div>
                     <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">User Perspective</h4>
                     <div className="text-xs text-slate-600 leading-relaxed prose prose-xs max-w-none">
-                      <MarkdownContent content={linkedFrame.userPerspective} />
+                      <MarkdownContent content={pickLang(linkedFrame.userPerspective, linkedFrame.userPerspectiveEn, linkedFrame.userPerspectiveZh, contentLanguage)} />
                     </div>
                   </div>
                 )}
@@ -215,7 +215,7 @@ export default function NewFramePage() {
                   <div>
                     <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Engineering</h4>
                     <div className="text-xs text-slate-600 leading-relaxed prose prose-xs max-w-none">
-                      <MarkdownContent content={linkedFrame.engineeringFraming} />
+                      <MarkdownContent content={pickLang(linkedFrame.engineeringFraming, linkedFrame.engineeringFramingEn, linkedFrame.engineeringFramingZh, contentLanguage)} />
                     </div>
                   </div>
                 )}
@@ -223,7 +223,7 @@ export default function NewFramePage() {
                   <div>
                     <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Validation</h4>
                     <div className="text-xs text-slate-600 leading-relaxed prose prose-xs max-w-none">
-                      <MarkdownContent content={linkedFrame.validationThinking} />
+                      <MarkdownContent content={pickLang(linkedFrame.validationThinking, linkedFrame.validationThinkingEn, linkedFrame.validationThinkingZh, contentLanguage)} />
                     </div>
                   </div>
                 )}
@@ -361,7 +361,12 @@ export default function NewFramePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">Problem Statement</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
-                    <MarkdownContent content={previewContent.problem_statement} />
+                    <MarkdownContent content={pickLang(
+                      previewContent.problem_statement || '',
+                      previewContent.problem_statement_en,
+                      previewContent.problem_statement_zh,
+                      contentLanguage
+                    )} />
                   </div>
                 </div>
               )}
@@ -369,7 +374,12 @@ export default function NewFramePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">Root Cause</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
-                    <MarkdownContent content={previewContent.root_cause} />
+                    <MarkdownContent content={pickLang(
+                      previewContent.root_cause || '',
+                      previewContent.root_cause_en,
+                      previewContent.root_cause_zh,
+                      contentLanguage
+                    )} />
                   </div>
                 </div>
               )}
@@ -377,7 +387,12 @@ export default function NewFramePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">User Perspective</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
-                    <MarkdownContent content={previewContent.user_perspective} />
+                    <MarkdownContent content={pickLang(
+                      previewContent.user_perspective || '',
+                      previewContent.user_perspective_en,
+                      previewContent.user_perspective_zh,
+                      contentLanguage
+                    )} />
                   </div>
                 </div>
               )}
@@ -385,7 +400,12 @@ export default function NewFramePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">Engineering Framing</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
-                    <MarkdownContent content={previewContent.engineering_framing} />
+                    <MarkdownContent content={pickLang(
+                      previewContent.engineering_framing || '',
+                      previewContent.engineering_framing_en,
+                      previewContent.engineering_framing_zh,
+                      contentLanguage
+                    )} />
                   </div>
                 </div>
               )}
@@ -393,7 +413,12 @@ export default function NewFramePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 mb-2">Validation Thinking</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
-                    <MarkdownContent content={previewContent.validation_thinking} />
+                    <MarkdownContent content={pickLang(
+                      previewContent.validation_thinking || '',
+                      previewContent.validation_thinking_en,
+                      previewContent.validation_thinking_zh,
+                      contentLanguage
+                    )} />
                   </div>
                 </div>
               )}

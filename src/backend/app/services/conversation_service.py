@@ -53,6 +53,8 @@ class ConversationService:
                 timestamp=datetime.fromisoformat(m["timestamp"]) if "timestamp" in m else datetime.now(timezone.utc),
                 metadata=m.get("metadata"),
                 sender_name=m.get("sender_name"),
+                content_en=m.get("content_en"),
+                content_zh=m.get("content_zh"),
             )
             for m in data.get("messages", [])
         ]
@@ -68,6 +70,8 @@ class ConversationService:
                     "timestamp": m.timestamp.isoformat(),
                     "metadata": m.metadata,
                     "sender_name": m.sender_name,
+                    "content_en": m.content_en,
+                    "content_zh": m.content_zh,
                 }
                 for m in messages
             ]
@@ -154,6 +158,8 @@ class ConversationService:
     def add_message(
         self, conv_id: str, role: str, content: str, metadata: Optional[dict] = None,
         sender_name: Optional[str] = None,
+        content_en: Optional[str] = None,
+        content_zh: Optional[str] = None,
     ) -> ConversationMessage:
         conv_dir = self._get_conv_dir(conv_id)
         if not conv_dir.exists():
@@ -164,6 +170,8 @@ class ConversationService:
         message = ConversationMessage(
             id=msg_id, role=role, content=content, metadata=metadata,
             sender_name=sender_name,
+            content_en=content_en,
+            content_zh=content_zh,
         )
         messages.append(message)
         self._write_messages(conv_dir, messages)

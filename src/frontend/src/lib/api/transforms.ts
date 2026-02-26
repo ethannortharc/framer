@@ -63,6 +63,19 @@ function flattenObjectToMarkdown(obj: Record<string, unknown>): string {
 }
 
 /**
+ * Pick the content for the given language, falling back to the primary content.
+ */
+export function pickLang(
+  primary: string,
+  en: string | undefined,
+  zh: string | undefined,
+  lang: 'en' | 'zh'
+): string {
+  if (lang === 'zh') return zh || primary;
+  return en || primary;
+}
+
+/**
  * Transform backend FrameResponse to frontend Frame
  */
 export function transformFrameResponse(response: FrameResponse): Frame {
@@ -76,6 +89,16 @@ export function transformFrameResponse(response: FrameResponse): Frame {
     userPerspective: normalizeContent(response.content.user_perspective),
     engineeringFraming: normalizeContent(response.content.engineering_framing),
     validationThinking: normalizeContent(response.content.validation_thinking),
+    problemStatementEn: response.content.problem_statement_en ?? undefined,
+    problemStatementZh: response.content.problem_statement_zh ?? undefined,
+    rootCauseEn: response.content.root_cause_en ?? undefined,
+    rootCauseZh: response.content.root_cause_zh ?? undefined,
+    userPerspectiveEn: response.content.user_perspective_en ?? undefined,
+    userPerspectiveZh: response.content.user_perspective_zh ?? undefined,
+    engineeringFramingEn: response.content.engineering_framing_en ?? undefined,
+    engineeringFramingZh: response.content.engineering_framing_zh ?? undefined,
+    validationThinkingEn: response.content.validation_thinking_en ?? undefined,
+    validationThinkingZh: response.content.validation_thinking_zh ?? undefined,
     ownerId: response.owner,
     createdAt: new Date(response.meta.created_at),
     updatedAt: new Date(response.meta.updated_at),

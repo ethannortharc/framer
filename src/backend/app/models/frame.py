@@ -157,6 +157,7 @@ class FrameContent(BaseModel):
     user_perspective: Optional[str] = None
     engineering_framing: Optional[str] = None
     validation_thinking: Optional[str] = None
+    translations: Optional[dict[str, dict[str, str]]] = None
 
     def to_markdown(self, frame_id: str, frame_type: FrameType) -> str:
         """Serialize to Markdown format for frame.md file."""

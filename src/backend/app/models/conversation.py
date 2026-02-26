@@ -37,6 +37,8 @@ class ConversationMessage(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Optional[dict[str, Any]] = None
     sender_name: Optional[str] = None
+    content_en: Optional[str] = None
+    content_zh: Optional[str] = None
 
 
 class ConversationState(BaseModel):

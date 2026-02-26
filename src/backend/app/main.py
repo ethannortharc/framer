@@ -1,7 +1,10 @@
 """
 FastAPI application entry point for Framer backend.
 """
+import asyncio
+import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -109,6 +112,25 @@ def create_app(
         prefix="/api/admin",
         tags=["admin"],
     )
+
+    # Schedule bilingual translation migration as a background task
+    @app.on_event("startup")
+    async def _run_bilingual_migration():
+        migrate_env = os.getenv("MIGRATE_TRANSLATIONS", "true").lower()
+        if migrate_env not in ("true", "1", "yes"):
+            return
+        try:
+            from app.services.migration_service import run_translation_migration
+            asyncio.create_task(
+                run_translation_migration(conversation_service, frame_service)
+            )
+            logging.getLogger("migration").info(
+                "Bilingual translation migration scheduled as background task"
+            )
+        except Exception as e:
+            logging.getLogger("migration").warning(
+                "Failed to schedule translation migration: %s", e
+            )
 
     return app
 

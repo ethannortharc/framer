@@ -76,6 +76,11 @@ class FrameService:
         frame_file = frame_dir / "frame.md"
         frame_file.write_text(content.to_markdown(frame_id, frame_type))
 
+        # Write translations.json if translations exist
+        if content.translations:
+            translations_file = frame_dir / "translations.json"
+            translations_file.write_text(json.dumps(content.translations, ensure_ascii=False, indent=2))
+
         return Frame(meta=meta, content=content)
 
     def get_frame(self, frame_id: str) -> Frame:
@@ -92,6 +97,14 @@ class FrameService:
         # Read frame.md
         frame_file = frame_dir / "frame.md"
         content = FrameContent.from_markdown(frame_file.read_text())
+
+        # Read translations.json if it exists
+        translations_file = frame_dir / "translations.json"
+        if translations_file.exists():
+            try:
+                content.translations = json.loads(translations_file.read_text())
+            except Exception:
+                pass
 
         return Frame(meta=meta, content=content)
 
@@ -135,6 +148,13 @@ class FrameService:
         # Write updated content
         frame_file = frame_dir / "frame.md"
         frame_file.write_text(content.to_markdown(frame_id, meta.type))
+
+        # Write/update translations.json
+        translations_file = frame_dir / "translations.json"
+        if content.translations:
+            translations_file.write_text(json.dumps(content.translations, ensure_ascii=False, indent=2))
+        elif translations_file.exists():
+            translations_file.unlink()
 
         return Frame(meta=meta, content=content)
 

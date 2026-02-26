@@ -54,6 +54,8 @@ function transformConversationResponse(response: any): Conversation {
       timestamp: m.timestamp,
       metadata: m.metadata,
       senderName: m.sender_name,
+      contentEn: m.content_en,
+      contentZh: m.content_zh,
     })),
     state: {
       frameType: response.state.frame_type,
@@ -164,6 +166,8 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
         content: response.ai_response.content,
         timestamp: response.ai_response.timestamp,
         metadata: response.ai_response.metadata,
+        contentEn: response.ai_response.content_en,
+        contentZh: response.ai_response.content_zh,
       };
 
       const updatedState = transformStateResponse(response.state);
@@ -184,6 +188,8 @@ export const useConversationStore = create<ConversationStore>()((set, get) => ({
                   timestamp: response.message.timestamp,
                   metadata: response.message.metadata,
                   senderName: response.message.sender_name,
+                  contentEn: response.message.content_en,
+                  contentZh: response.message.content_zh,
                 },
                 aiMsg,
               ],

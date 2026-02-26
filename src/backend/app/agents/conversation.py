@@ -145,12 +145,25 @@ Respond with JSON:
 }}
 """
 
+TRANSLATE_PROMPT = """Translate the following texts from {source_lang} to {target_lang}.
+Preserve all markdown formatting, code blocks, and technical terms.
+Return a JSON object with the same keys but translated values.
+
+Texts to translate:
+{texts_json}
+
+Respond with JSON only — same keys, translated values."""
+
 
 class ConversationTurn(BaseModel):
     """Result of processing a conversation turn."""
     response: str = Field(description="AI response text")
     updated_state: ConversationState = Field(description="Updated conversation state")
     relevant_knowledge: list[dict[str, Any]] = Field(default_factory=list)
+    response_en: Optional[str] = None
+    response_zh: Optional[str] = None
+    user_content_en: Optional[str] = None
+    user_content_zh: Optional[str] = None
 
 
 class ConversationAgent:
@@ -284,6 +297,28 @@ class ConversationAgent:
             f"regardless of what language the user writes in.\n\n"
         )
 
+    async def translate_texts(
+        self, texts: dict[str, str], source_lang: str, target_lang: str
+    ) -> dict[str, str]:
+        """Translate a batch of texts from source_lang to target_lang."""
+        import logging
+        logger = logging.getLogger("conversation_agent")
+
+        lang_names = {"en": "English", "zh": "Chinese (中文)"}
+        prompt = TRANSLATE_PROMPT.format(
+            source_lang=lang_names.get(source_lang, source_lang),
+            target_lang=lang_names.get(target_lang, target_lang),
+            texts_json=json.dumps(texts, ensure_ascii=False, indent=2),
+        )
+
+        result = await self._call_ai(
+            "You are a professional translator. Translate accurately while preserving markdown formatting. Respond with JSON only.",
+            [{"role": "user", "content": prompt}],
+        )
+
+        # Return only the keys that were in the original texts
+        return {k: result.get(k, v) for k, v in texts.items()}
+
     async def process_turn(
         self,
         messages: list[ConversationMessage],
@@ -349,11 +384,35 @@ class ConversationAgent:
             elif isinstance(item, str):
                 knowledge.append({"content": item})
 
-        return ConversationTurn(
+        turn = ConversationTurn(
             response=result.get("response", "I need a moment to think about that."),
             updated_state=updated_state,
             relevant_knowledge=knowledge,
         )
+
+        # --- Bilingual translation step ---
+        try:
+            primary_lang = language if language else "en"
+            other_lang = "zh" if primary_lang == "en" else "en"
+            translated = await self.translate_texts(
+                {"user_message": user_message, "ai_response": turn.response},
+                primary_lang,
+                other_lang,
+            )
+            if primary_lang == "en":
+                turn.user_content_en = user_message
+                turn.user_content_zh = translated.get("user_message")
+                turn.response_en = turn.response
+                turn.response_zh = translated.get("ai_response")
+            else:
+                turn.user_content_zh = user_message
+                turn.user_content_en = translated.get("user_message")
+                turn.response_zh = turn.response
+                turn.response_en = translated.get("ai_response")
+        except Exception as e:
+            logger.warning(f"Translation failed (non-fatal): {e}")
+
+        return turn
 
     async def synthesize_frame(
         self, messages: list[ConversationMessage], state: ConversationState,
@@ -375,13 +434,34 @@ class ConversationAgent:
             [{"role": "user", "content": prompt}],
         )
 
-        return {
+        sections = {
             "problem_statement": result.get("problem_statement", ""),
             "root_cause": result.get("root_cause", ""),
             "user_perspective": result.get("user_perspective", ""),
             "engineering_framing": result.get("engineering_framing", ""),
             "validation_thinking": result.get("validation_thinking", ""),
         }
+
+        # --- Bilingual translation step ---
+        try:
+            primary_lang = language if language else "en"
+            other_lang = "zh" if primary_lang == "en" else "en"
+            # Only translate non-empty sections
+            to_translate = {k: v for k, v in sections.items() if v.strip()}
+            if to_translate:
+                translated = await self.translate_texts(to_translate, primary_lang, other_lang)
+                for key in sections:
+                    if primary_lang == "en":
+                        sections[f"{key}_en"] = sections[key]
+                        sections[f"{key}_zh"] = translated.get(key, "")
+                    else:
+                        sections[f"{key}_zh"] = sections[key]
+                        sections[f"{key}_en"] = translated.get(key, "")
+        except Exception as e:
+            import logging
+            logging.getLogger("conversation_agent").warning(f"Frame translation failed (non-fatal): {e}")
+
+        return sections
 
     async def process_review_turn(
         self,
@@ -402,11 +482,36 @@ class ConversationAgent:
         # Review conversations are conversational (plain text), not JSON
         response_text = await self._call_ai_text(system, chat_messages)
 
-        return ConversationTurn(
+        turn = ConversationTurn(
             response=response_text,
             updated_state=state,  # Review conversations don't track section coverage
             relevant_knowledge=[],
         )
+
+        # --- Bilingual translation step ---
+        try:
+            primary_lang = language if language else "en"
+            other_lang = "zh" if primary_lang == "en" else "en"
+            translated = await self.translate_texts(
+                {"user_message": user_message, "ai_response": turn.response},
+                primary_lang,
+                other_lang,
+            )
+            if primary_lang == "en":
+                turn.user_content_en = user_message
+                turn.user_content_zh = translated.get("user_message")
+                turn.response_en = turn.response
+                turn.response_zh = translated.get("ai_response")
+            else:
+                turn.user_content_zh = user_message
+                turn.user_content_en = translated.get("user_message")
+                turn.response_zh = turn.response
+                turn.response_en = translated.get("ai_response")
+        except Exception as e:
+            import logging
+            logging.getLogger("conversation_agent").warning(f"Translation failed (non-fatal): {e}")
+
+        return turn
 
     async def summarize_review(
         self, messages: list[ConversationMessage]

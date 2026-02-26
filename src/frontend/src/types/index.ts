@@ -54,6 +54,16 @@ export interface Frame {
   userPerspective: string;
   engineeringFraming: string;
   validationThinking: string;
+  problemStatementEn?: string;
+  problemStatementZh?: string;
+  rootCauseEn?: string;
+  rootCauseZh?: string;
+  userPerspectiveEn?: string;
+  userPerspectiveZh?: string;
+  engineeringFramingEn?: string;
+  engineeringFramingZh?: string;
+  validationThinkingEn?: string;
+  validationThinkingZh?: string;
   ownerId: string;
   reviewer?: string;
   approver?: string;
@@ -121,6 +131,8 @@ export interface ConversationMessage {
   metadata?: Record<string, unknown>;
   status?: 'sent' | 'failed';
   senderName?: string;
+  contentEn?: string;
+  contentZh?: string;
 }
 
 export interface ConversationState {
