@@ -3,9 +3,9 @@
   "checkpoint_id": "86a85303998c",
   "session_id": "3f03ed39-0576-4572-93b2-6f8d1c974250",
   "strategy": "manual-commit",
-  "created_at": "2026-02-26T22:22:05.722198351Z",
+  "created_at": "2026-02-26T23:12:46.625679839Z",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 0,
   "files_touched": [
     "src/backend/app/agents/conversation.py",
     "src/backend/app/api/ai.py",
@@ -24,20 +24,22 @@
     "src/frontend/src/types/index.ts"
   ],
   "agent": "Claude Code",
+  "checkpoint_transcript_start": 363,
+  "transcript_lines_at_start": 363,
   "token_usage": {
-    "input_tokens": 107,
-    "cache_creation_tokens": 116101,
-    "cache_read_tokens": 12335097,
-    "output_tokens": 20713,
-    "api_call_count": 103
+    "input_tokens": 74,
+    "cache_creation_tokens": 101458,
+    "cache_read_tokens": 7298821,
+    "output_tokens": 10770,
+    "api_call_count": 61
   },
   "initial_attribution": {
-    "calculated_at": "2026-02-26T22:22:05.608487986Z",
-    "agent_lines": 202,
-    "human_added": 0,
+    "calculated_at": "2026-02-26T23:12:46.411818053Z",
+    "agent_lines": 267,
+    "human_added": 256,
     "human_modified": 0,
     "human_removed": 0,
-    "total_committed": 202,
-    "agent_percentage": 100
+    "total_committed": 523,
+    "agent_percentage": 51.05162523900574
   }
 }

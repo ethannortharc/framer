@@ -3,7 +3,7 @@
   "checkpoint_id": "86a85303998c",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 0,
   "files_touched": [
     "src/backend/app/agents/conversation.py",
     "src/backend/app/api/ai.py",
@@ -40,10 +40,10 @@
     }
   ],
   "token_usage": {
-    "input_tokens": 121,
-    "cache_creation_tokens": 256679,
-    "cache_read_tokens": 13584679,
-    "output_tokens": 21159,
-    "api_call_count": 113
+    "input_tokens": 88,
+    "cache_creation_tokens": 242036,
+    "cache_read_tokens": 8548403,
+    "output_tokens": 11216,
+    "api_call_count": 71
   }
 }

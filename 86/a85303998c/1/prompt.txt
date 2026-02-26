@@ -145,3 +145,274 @@ If you need specific details from before exiting plan mode (like exact code snip
 ---
 
 commit with ethan.northarc@gmail.com, push to GitHub
+
+---
+
+pull on 10.83.80.29, and deploy the latest change
+
+---
+
+[Request interrupted by user for tool use]
+
+---
+
+please use ssh zhbo@10.83.80.29, the user is zhbo
+
+---
+
+can't login, it tells Network error during login
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me chronologically analyze the conversation:
+
+1. **Initial Request**: User provided a detailed implementation plan with 3 features:
+   - Root Cause section for bug frames
+   - Structured test cases in Validation Thinking
+   - Real-time language support (EN/ZH)
+
+2. **Implementation Phase**: I read all relevant files, then systematically implemented changes across 15 files.
+
+3. **Backend Model Changes**:
+   - `frame.py`: Added `root_cause` field, updated `to_markdown()` and `from_markdown()`
+   - `conversation.py`: Added `root_cause: 0.0` to sections_covered
+
+4. **Agent Changes**:
+   - `conversation.py` agent: Updated SYSTEM_PROMPT, SYNTHESIZE_PROMPT, added `_language_instruction()` static method, added `language` param to `process_turn()`, `synthesize_frame()`, `process_review_turn()`
+
+5. **API Changes**:
+   - `conversations.py`: Added `language` to SendMessageRequest, passed through to agent methods, added root_cause to FrameContent creation and eval content
+   - `frames.py`: Added root_cause to FrameResponse content dict
+   - `ai.py`: Updated EVALUATE_PROMPT criteria, added root_cause to frame_content string
+
+6. **Frontend Changes**:
+   - `types/index.ts`: Added rootCause to Frame, root_cause to FrameSection, rootCause to ConversationState.sectionsCovered, updated ReviewComment.section
+   - `transforms.ts`: Added root_cause ↔ rootCause mapping
+   - `client.ts`: Added root_cause to FrameResponse content type, language param to sendConversationMessage
+   - `store/index.ts`: Added contentLanguage and setContentLanguage
+   - `conversationStore.ts`: Added rootCause to state transforms, passes language to API
+   - `FrameDocumentView.tsx`: Added Root Cause section rendering
+   - `CoveragePanel.tsx`: Added rootCause bar conditionally for bug frames
+   - `frame/[id]/page.tsx`: Added root_cause editing, language toggle
+   - `app/new/page.tsx`: Added language toggle, root_cause in preview modal
+
+7. **TypeScript Error**: Got TS2322 error because `ReviewComment.section` was hardcoded as `'header' | 'user' | 'engineering' | 'validation'` and didn't include `'root_cause'`. Fixed by changing it to use `FrameSection` type.
+
+8. **Commit and Push**: Committed as `ethan.northarc@gmail.com`, pushed to GitHub.
+
+9. **Deployment Attempt 1**: User asked to pull on 10.83.80.29 and deploy. Initial SSH failed with `hongbozhou@10.83.80.29` - permission denied.
+
+10. **User Correction**: User said to use `ssh zhbo@10.83.80.29`.
+
+11. **Deployment**: Successfully pulled and deployed with `docker-compose down && docker-compose up -d --build`. Project is at `/home/zhbo/projects/framer/` on the remote server.
+
+12. **Login Error**: User reported "Network error during login". Investigation revealed:
+    - All containers were up and healthy
+    - Default `.env` was missing, so URLs defaulted to `localhost`
+    - Created `.env` with correct server IP URLs
+    - Rebuilt and redeployed
+    - Verified PocketBase URL `10.83.80.29:8090` was baked into the frontend build
+    - PocketBase health check passes, CORS allows all origins
+    - The login code in `auth.ts` catches any error and throws "Network error during login"
+    - Was investigating firewall when the summary was requested
+
+The last command to check firewall returned empty, which was inconclusive. The issue could be:
+- Firewall blocking port 8090 from the user's browser machine
+- The user's browser can't reach 10.83.80.29:8090
+- Some other network issue between the user's machine and the server
+
+Summary:
+1. Primary Request and Intent:
+   The user requested implementation of a 3-feature plan for the "Framer" application:
+   - **Feature 1**: Add a Root Cause section for bug frames (between Problem Statement and User Perspective)
+   - **Feature 2**: Change Validation Thinking from freeform prose to structured test-case format (table + checklist + rollback plan)
+   - **Feature 3**: Real-time multi-language content support (EN/ZH) — AI-generated content follows user's language preference, system UI stays English
+   
+   After implementation, the user requested: commit with `ethan.northarc@gmail.com`, push to GitHub, pull on `10.83.80.29`, and deploy. Then reported a login error ("Network error during login") that we were actively debugging.
+
+2. Key Technical Concepts:
+   - FastAPI backend with factory pattern, file-based storage (YAML/MD)
+   - Pydantic models with markdown serialization (`to_markdown()`/`from_markdown()`)
+   - Next.js App Router frontend with Zustand stores
+   - snake_case (backend) ↔ camelCase (frontend) transforms
+   - PocketBase authentication
+   - AI conversation agents (OpenAI/Anthropic provider-agnostic)
+   - `NEXT_PUBLIC_*` env vars baked at Next.js build time
+   - Docker Compose deployment with 3 services: pocketbase, backend, frontend
+   - Remote server: `zhbo@10.83.80.29`, project at `/home/zhbo/projects/framer/`
+
+3. Files and Code Sections:
+
+   - **`src/backend/app/models/frame.py`** — Core frame data model
+     - Added `root_cause: Optional[str] = None` field to `FrameContent`
+     - Updated `to_markdown()` to conditionally insert `## Root Cause` section after Problem Statement
+     - Added `"## root cause": "root_cause"` to `from_markdown()` section_map
+     ```python
+     class FrameContent(BaseModel):
+         problem_statement: Optional[str] = None
+         root_cause: Optional[str] = None
+         user_perspective: Optional[str] = None
+         engineering_framing: Optional[str] = None
+         validation_thinking: Optional[str] = None
+     ```
+
+   - **`src/backend/app/models/conversation.py`** — Conversation state tracking
+     - Added `"root_cause": 0.0` to `ConversationState.sections_covered` default dict
+
+   - **`src/backend/app/agents/conversation.py`** — AI conversation agent (core prompt engineering)
+     - Updated `SYSTEM_PROMPT`: Added root_cause as section 1b for bug frames, updated Validation Thinking description to "structured test cases", updated JSON schema to include root_cause
+     - Updated `SYNTHESIZE_PROMPT`: Added root_cause field, specified markdown table format for validation_thinking
+     - Added `_language_instruction()` static method for language prefix
+     - Added `language: Optional[str] = None` parameter to `process_turn()`, `synthesize_frame()`, `process_review_turn()`
+     - `synthesize_frame()` now returns `root_cause` in the dict
+     ```python
+     @staticmethod
+     def _language_instruction(language: Optional[str]) -> str:
+         if not language or language == "en":
+             return ""
+         lang_names = {"zh": "Chinese (中文)", "ja": "Japanese", "ko": "Korean"}
+         lang_name = lang_names.get(language, language)
+         return (
+             f"IMPORTANT: You MUST respond entirely in {lang_name}. "
+             f"All content, analysis, questions, and frame sections must be in {lang_name}, "
+             f"regardless of what language the user writes in.\n\n"
+         )
+     ```
+
+   - **`src/backend/app/api/conversations.py`** — Conversations API
+     - Added `language: Optional[str] = None` to `SendMessageRequest`
+     - Passed `language=request.language` to `agent.process_turn()`, `agent.process_review_turn()`
+     - Added `root_cause` to `FrameContent()` creation in synthesis
+     - Added root_cause to evaluation content string
+
+   - **`src/backend/app/api/frames.py`** — Frames API
+     - Added `"root_cause": frame.content.root_cause` to `FrameResponse.from_frame()` content dict
+
+   - **`src/backend/app/api/ai.py`** — AI evaluation endpoints
+     - Updated `EVALUATE_PROMPT`: Added root cause check for bug frames under Problem Statement criteria, updated Validation Thinking criteria to check for structured test cases
+     - Updated `frame_content` string in `evaluate_frame()` to conditionally include Root Cause section
+
+   - **`src/frontend/src/types/index.ts`** — Frontend type definitions
+     - Added `rootCause: string` to `Frame` interface
+     - Added `'root_cause'` to `FrameSection` type
+     - Added `rootCause: number` to `ConversationState.sectionsCovered`
+     - Changed `ReviewComment.section` from hardcoded union type to `FrameSection`
+
+   - **`src/frontend/src/lib/api/client.ts`** — API client
+     - Added `root_cause?: string` to `FrameResponse.content` type
+     - Added `root_cause?` to createFrame and updateFrame content types
+     - Added `language?: string` parameter to `sendConversationMessage()`
+
+   - **`src/frontend/src/lib/api/transforms.ts`** — snake_case ↔ camelCase transforms
+     - Added `rootCause: normalizeContent(response.content.root_cause || '')` to `transformFrameResponse()`
+     - Added `root_cause: frame.rootCause` to `transformFrameToContent()`
+
+   - **`src/frontend/src/store/index.ts`** — Zustand frame store
+     - Added `contentLanguage: 'en' | 'zh'` to interface and state (default `'en'`)
+     - Added `setContentLanguage` action
+     - Added `contentLanguage` to persisted state
+
+   - **`src/frontend/src/store/conversationStore.ts`** — Conversation store
+     - Added `import { useFrameStore } from './index'`
+     - Added `rootCause` to both `transformConversationResponse()` and `transformStateResponse()`
+     - In `sendMessage()`, reads `contentLanguage` from frame store and passes to API client
+
+   - **`src/frontend/src/components/frame/FrameDocumentView.tsx`** — Document view
+     - Added Root Cause section rendering between Problem Statement and User Perspective
+     ```tsx
+     if (frame.rootCause && frame.rootCause.trim()) {
+       parts.push(`## Root Cause\n\n${frame.rootCause.trim()}`);
+     }
+     ```
+
+   - **`src/frontend/src/components/conversation/CoveragePanel.tsx`** — Coverage panel
+     - Changed from static `sections` array to `allSections` with `bugOnly` flag
+     - Root Cause bar shown conditionally when `state.frameType === 'bug'`
+     - Dynamic section count for coverage calculation
+
+   - **`src/frontend/src/app/frame/[id]/page.tsx`** — Frame detail page
+     - Added `rootCauseSection` config object for editing
+     - Added Root Cause textarea (conditionally for bug type) in edit mode
+     - Added `Globe` icon import and language toggle button in header
+     - Extracted `contentLanguage` and `setContentLanguage` from `useFrameStore()`
+
+   - **`src/frontend/src/app/new/page.tsx`** — New frame conversation page
+     - Added `Globe` icon import
+     - Added `useFrameStore` import for `contentLanguage`/`setContentLanguage`
+     - Added language toggle button (EN/ZH) in chat header
+     - Added `rootCause: 0` to default state
+     - Added root_cause section rendering in preview modal
+
+   - **`src/frontend/src/lib/api/auth.ts`** (read-only, for debugging)
+     - Login function at line 112 calls `${this.pocketbaseURL}/api/collections/users/auth-with-password`
+     - Line 148: catches any error and throws `AuthError('Network error during login', 'network')`
+     - `POCKETBASE_URL` comes from `process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090'`
+
+   - **`docker-compose.yml`** (read-only)
+     - Frontend build args: `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_POCKETBASE_URL` (baked at build time)
+     - Defaults to `localhost` URLs without `.env` file
+
+   - **`.env` on remote server** (created during debugging)
+     ```
+     NEXT_PUBLIC_API_BASE_URL=http://10.83.80.29:8000
+     NEXT_PUBLIC_POCKETBASE_URL=http://10.83.80.29:8090
+     BACKEND_CORS_ORIGINS=http://10.83.80.29:3000,http://localhost:3000
+     ```
+
+4. Errors and Fixes:
+   - **TypeScript TS2322 error**: `Type 'FrameSection' is not assignable to type '"header" | "user" | "engineering" | "validation"'` in `store/index.ts:420` — `ReviewComment.section` was a hardcoded union type that didn't include `'root_cause'`. Fixed by changing `ReviewComment.section` type from the hardcoded union to `FrameSection`.
+   - **SSH permission denied**: Initial SSH attempt used `hongbozhou@10.83.80.29` which failed. User corrected to use `ssh zhbo@10.83.80.29`.
+   - **Wrong project path**: First tried `/home/zhbo/projects/poc/framer` which didn't exist. Found correct path at `/home/zhbo/projects/framer/`.
+   - **Login "Network error"**: After initial deployment, URLs defaulted to `localhost`. Created `.env` with `10.83.80.29` IPs, rebuilt and redeployed. Verified PocketBase URL was correctly baked into the frontend build (`10.83.80.29:8090`). PocketBase health check and CORS both pass. Was checking firewall when interrupted.
+
+5. Problem Solving:
+   - All 3 features implemented successfully across 15 files
+   - TypeScript compilation passes clean
+   - Python imports verified
+   - Markdown round-trip serialization verified for root_cause
+   - Committed as `f020969` on main, pushed to GitHub
+   - Deployed to remote server at `10.83.80.29`
+   - **Ongoing**: Login "Network error" debugging — PocketBase is healthy, CORS is open (`Access-Control-Allow-Origin: *`), correct URL baked in build. Last step was checking firewall rules (`sudo ufw status` / `sudo iptables`) which returned empty output. The issue is likely that port 8090 is not reachable from the user's browser machine (firewall or network routing).
+
+6. All User Messages:
+   - "Implement the following plan: [detailed 3-feature plan with root cause, structured test cases, and language support]"
+   - "commit with ethan.northarc@gmail.com, push to GitHub"
+   - "pull on 10.83.80.29, and deploy the latest change"
+   - "[Request interrupted by user for tool use] please use ssh zhbo@10.83.80.29, the user is zhbo"
+   - "can't login, it tells Network error during login"
+
+7. Pending Tasks:
+   - Resolve the "Network error during login" issue on the deployed app at `10.83.80.29`
+
+8. Current Work:
+   Debugging the "Network error during login" issue on the deployed instance at `10.83.80.29:3000`. The user reported they cannot log in after deployment. Investigation so far:
+   - All 3 Docker containers (pocketbase, backend, frontend) are up and healthy
+   - Created `.env` with correct server IP, rebuilt and redeployed
+   - Verified `10.83.80.29:8090` is baked into the frontend JS bundle (not localhost)
+   - PocketBase health endpoint responds correctly from the server itself
+   - PocketBase CORS returns `Access-Control-Allow-Origin: *`
+   - The login code in `auth.ts:148` catches any fetch error and throws generic "Network error during login"
+   - Last command executed was checking firewall rules (`sudo ufw status`) which returned empty/no output
+
+9. Optional Next Step:
+   Continue debugging the login network error. The firewall check returned empty — need to verify if ports 8090 and 8000 are accessible from the user's browser machine (not just from the server itself). Try:
+   1. Check if the user is accessing via `http://10.83.80.29:3000` or some other URL
+   2. Test port reachability: `curl http://10.83.80.29:8090/api/health` from the local machine
+   3. Check if `nftables` or another firewall framework is in use instead of `ufw`/`iptables`
+   4. Check `docker-compose logs` for any runtime errors
+
+   User's last message: "can't login, it tells Network error during login"
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /home/hongbozhou/.REDACTED.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+I understand that we need to maitain 2 languages content, once the user switch to one, will then use that one to display. for each message, also need to translate the request and the respon in 2 languages.
+
+---
+
+[Request interrupted by user for tool use]
