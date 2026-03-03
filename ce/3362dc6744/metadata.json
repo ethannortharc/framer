@@ -1,0 +1,44 @@
+{
+  "cli_version": "dev",
+  "checkpoint_id": "ce3362dc6744",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/backend/app/api/frames.py",
+    "src/backend/app/services/frame_service.py",
+    "src/frontend/src/app/dashboard/page.tsx",
+    "src/frontend/src/app/frame/[id]/page.tsx",
+    "src/frontend/src/app/knowledge/page.tsx",
+    "src/frontend/src/app/login/page.tsx",
+    "src/frontend/src/app/new/page.tsx",
+    "src/frontend/src/components/conversation/ChatInterface.tsx",
+    "src/frontend/src/components/conversation/CoveragePanel.tsx",
+    "src/frontend/src/components/dashboard/Dashboard.tsx",
+    "src/frontend/src/components/dashboard/KanbanBoard.tsx",
+    "src/frontend/src/components/frame/FeedbackForm.tsx",
+    "src/frontend/src/components/frame/FrameDocumentView.tsx",
+    "src/frontend/src/components/frame/FrameSection.tsx",
+    "src/frontend/src/components/layout/LeftNav.tsx",
+    "src/frontend/src/lib/api/client.ts",
+    "src/frontend/src/lib/i18n.ts",
+    "src/frontend/src/store/index.ts",
+    "src/frontend/src/types/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ce/3362dc6744/0/metadata.json",
+      "transcript": "/ce/3362dc6744/0/full.jsonl",
+      "context": "/ce/3362dc6744/0/context.md",
+      "content_hash": "/ce/3362dc6744/0/content_hash.txt",
+      "prompt": "/ce/3362dc6744/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 254,
+    "cache_creation_tokens": 254920,
+    "cache_read_tokens": 31606689,
+    "output_tokens": 72639,
+    "api_call_count": 248
+  }
+}
