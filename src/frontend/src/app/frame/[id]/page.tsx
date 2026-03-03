@@ -656,8 +656,8 @@ export default function FrameDetailPage() {
                     const commentId = comment.id || String(i);
                     const commentStatus = comment.status || 'open';
                     const isReplying = replyingCommentId === commentId;
-                    const isOwner = user?.id === frame.ownerId;
                     const isResolved = commentStatus !== 'open';
+                    const canRespond = !!user;
 
                     return (
                       <div key={commentId} className={cn(
@@ -701,8 +701,8 @@ export default function FrameDetailPage() {
                           </div>
                         )}
 
-                        {/* Action buttons (only for frame owner, only for open comments) */}
-                        {isOwner && !isResolved && !isReplying && (
+                        {/* Action buttons (any authenticated user, only for open comments) */}
+                        {canRespond && !isResolved && !isReplying && (
                           <div className="flex items-center gap-1.5 pt-1">
                             <Button
                               variant="ghost"
