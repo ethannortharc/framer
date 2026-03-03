@@ -1,16 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Frame, Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { Frame, Mail, Lock, User, AlertCircle, Loader2, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useFrameStore } from '@/store';
+import { useT } from '@/lib/i18n';
 
 type AuthMode = 'login' | 'register';
 
 export default function LoginPage() {
   const { login, register, error, clearError, isLoading } = useAuthContext();
+  const { contentLanguage, setContentLanguage } = useFrameStore();
+  const t = useT();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,6 +52,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      {/* Language Toggle - top right */}
+      <button
+        onClick={() => setContentLanguage(contentLanguage === 'en' ? 'zh' : 'en')}
+        className="fixed top-4 right-4 flex items-center gap-1 px-3 py-1.5 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors shadow-sm z-10"
+        title="Toggle language"
+      >
+        <Globe className="h-3.5 w-3.5" />
+        {contentLanguage === 'en' ? 'EN' : 'ZH'}
+      </button>
+
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
@@ -57,12 +71,12 @@ export default function LoginPage() {
           </div>
           <div>
             <CardTitle className="text-2xl">
-              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+              {mode === 'login' ? t('login.welcomeBack') : t('login.createAccount')}
             </CardTitle>
             <CardDescription>
               {mode === 'login'
-                ? 'Sign in to continue to Framer'
-                : 'Sign up to start framing your work'}
+                ? t('login.signInDesc')
+                : t('login.signUpDesc')}
             </CardDescription>
           </div>
         </CardHeader>
@@ -78,14 +92,14 @@ export default function LoginPage() {
 
             {mode === 'register' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Name (optional)</label>
+                <label className="text-sm font-medium text-slate-700">{t('login.nameOptional')}</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
+                    placeholder={t('login.yourName')}
                     className="pl-10"
                   />
                 </div>
@@ -93,14 +107,14 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-sm font-medium text-slate-700">{t('login.email')}</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={t('login.emailPlaceholder')}
                   className="pl-10"
                   required
                 />
@@ -108,14 +122,14 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Password</label>
+              <label className="text-sm font-medium text-slate-700">{t('login.password')}</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('login.passwordPlaceholder')}
                   className="pl-10"
                   required
                 />
@@ -124,20 +138,20 @@ export default function LoginPage() {
 
             {mode === 'register' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Confirm Password</label>
+                <label className="text-sm font-medium text-slate-700">{t('login.confirmPassword')}</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm your password"
+                    placeholder={t('login.confirmPlaceholder')}
                     className="pl-10"
                     required
                   />
                 </div>
                 {confirmPassword && !passwordsMatch && (
-                  <p className="text-xs text-red-600">Passwords do not match</p>
+                  <p className="text-xs text-red-600">{t('login.passwordsNoMatch')}</p>
                 )}
               </div>
             )}
@@ -146,10 +160,10 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {mode === 'login' ? 'Signing in...' : 'Creating account...'}
+                  {mode === 'login' ? t('login.signingIn') : t('login.creatingAccount')}
                 </>
               ) : (
-                <>{mode === 'login' ? 'Sign In' : 'Create Account'}</>
+                <>{mode === 'login' ? t('login.signIn') : t('login.createAccount')}</>
               )}
             </Button>
           </form>
@@ -162,13 +176,13 @@ export default function LoginPage() {
             >
               {mode === 'login' ? (
                 <>
-                  Don&apos;t have an account?{' '}
-                  <span className="font-medium text-slate-900">Sign up</span>
+                  {t('login.noAccount')}{' '}
+                  <span className="font-medium text-slate-900">{t('login.signUp')}</span>
                 </>
               ) : (
                 <>
-                  Already have an account?{' '}
-                  <span className="font-medium text-slate-900">Sign in</span>
+                  {t('login.hasAccount')}{' '}
+                  <span className="font-medium text-slate-900">{t('login.signInLink')}</span>
                 </>
               )}
             </button>

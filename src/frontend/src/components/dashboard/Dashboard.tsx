@@ -15,6 +15,7 @@ import { KanbanBoard } from './KanbanBoard';
 import { useFrameStore } from '@/store';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { FrameType } from '@/types';
+import { useT } from '@/lib/i18n';
 
 interface DashboardProps {
   onFrameClick: (frameId: string) => void;
@@ -24,6 +25,7 @@ interface DashboardProps {
 export function Dashboard({ onFrameClick, onNewFrame }: DashboardProps) {
   const { frames } = useFrameStore();
   const { user } = useAuthContext();
+  const t = useT();
   const [typeFilter, setTypeFilter] = useState<FrameType | 'all'>('all');
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,7 +41,7 @@ export function Dashboard({ onFrameClick, onNewFrame }: DashboardProps) {
           {/* New Frame Button */}
           <Button onClick={onNewFrame} className="gap-2">
             <Plus className="h-4 w-4" />
-            New Frame
+            {t('dashboard.newFrame')}
           </Button>
 
           {/* Filters */}
@@ -50,13 +52,13 @@ export function Dashboard({ onFrameClick, onNewFrame }: DashboardProps) {
               onValueChange={(v) => setTypeFilter(v as FrameType | 'all')}
             >
               <SelectTrigger className="w-36">
-                <SelectValue placeholder="All Types" />
+                <SelectValue placeholder={t('dashboard.allTypes')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="bug">Bug</SelectItem>
-                <SelectItem value="feature">Feature</SelectItem>
-                <SelectItem value="exploration">Exploration</SelectItem>
+                <SelectItem value="all">{t('dashboard.allTypes')}</SelectItem>
+                <SelectItem value="bug">{t('type.bug')}</SelectItem>
+                <SelectItem value="feature">{t('type.feature')}</SelectItem>
+                <SelectItem value="exploration">{t('type.exploration')}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -66,13 +68,13 @@ export function Dashboard({ onFrameClick, onNewFrame }: DashboardProps) {
               onValueChange={setOwnerFilter}
             >
               <SelectTrigger className="w-44">
-                <SelectValue placeholder="All Owners" />
+                <SelectValue placeholder={t('dashboard.allOwners')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Owners</SelectItem>
+                <SelectItem value="all">{t('dashboard.allOwners')}</SelectItem>
                 {user && (
                   <SelectItem value={user.id}>
-                    {user.name || user.email.split('@')[0]} (Me)
+                    {user.name || user.email.split('@')[0]} ({t('common.me')})
                   </SelectItem>
                 )}
               </SelectContent>
@@ -84,7 +86,7 @@ export function Dashboard({ onFrameClick, onNewFrame }: DashboardProps) {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search frames..."
+                placeholder={t('dashboard.searchFrames')}
                 className="pl-9 w-64"
               />
             </div>

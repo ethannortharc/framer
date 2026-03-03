@@ -21,6 +21,7 @@ import { FeedbackForm } from '@/components/frame/FeedbackForm';
 import { formatDate, truncate, cn } from '@/lib/utils';
 import { getAPIClient, type FrameHistoryEntry, type KnowledgeEntryResponse } from '@/lib/api';
 import { MarkdownContent } from '@/components/frame/MarkdownContent';
+import { useT, type TranslationKey } from '@/lib/i18n';
 import {
   Pencil,
   Eye,
@@ -56,16 +57,16 @@ function formatHistoryTimestamp(ts: string): string {
 
 // Section config for draft editing
 const baseSections = [
-  { key: 'user' as FrameSectionType, title: 'User Perspective', field: 'userPerspective' as const, placeholder: 'Describe who is affected, their context, journey, and pain points...\n\nSupports **markdown**: headings, lists, bold, code blocks.', bugOnly: false },
-  { key: 'engineering' as FrameSectionType, title: 'Engineering Framing', field: 'engineeringFraming' as const, placeholder: 'Define key principles, trade-offs, and explicit non-goals...\n\nSupports **markdown**: headings, lists, bold, code blocks.', bugOnly: false },
-  { key: 'validation' as FrameSectionType, title: 'Validation Thinking', field: 'validationThinking' as const, placeholder: 'Describe success signals and what would disprove your approach...\n\nSupports **markdown**: headings, lists, bold, code blocks.', bugOnly: false },
+  { key: 'user' as FrameSectionType, titleKey: 'section.userPerspective' as TranslationKey, field: 'userPerspective' as const, placeholderKey: 'frame.placeholderUserPerspective' as TranslationKey, bugOnly: false },
+  { key: 'engineering' as FrameSectionType, titleKey: 'section.engineeringFraming' as TranslationKey, field: 'engineeringFraming' as const, placeholderKey: 'frame.placeholderEngineering' as TranslationKey, bugOnly: false },
+  { key: 'validation' as FrameSectionType, titleKey: 'section.validationThinking' as TranslationKey, field: 'validationThinking' as const, placeholderKey: 'frame.placeholderValidation' as TranslationKey, bugOnly: false },
 ] as const;
 
 const rootCauseSection = {
   key: 'root_cause' as FrameSectionType,
-  title: 'Root Cause',
+  titleKey: 'section.rootCause' as TranslationKey,
   field: 'rootCause' as const,
-  placeholder: 'What is the technical root cause? Why did this happen?\n\nSupports **markdown**: headings, lists, bold, code blocks.',
+  placeholderKey: 'frame.placeholderRootCause' as TranslationKey,
   bugOnly: true,
 } as const;
 
@@ -112,6 +113,7 @@ export default function FrameDetailPage() {
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [expandedHistoryHash, setExpandedHistoryHash] = useState<string | null>(null);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const t = useT();
 
   // Always load fresh data on mount to pick up review summaries, version changes, etc.
   useEffect(() => {
@@ -190,7 +192,7 @@ export default function FrameDetailPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" />
-          Loading frame...
+          {t('frame.loading')}
         </div>
       </div>
     );
@@ -238,8 +240,8 @@ export default function FrameDetailPage() {
             <div className="flex items-center gap-4">
               <Breadcrumb
                 items={[
-                  { label: 'Dashboard', onClick: handleBack },
-                  { label: truncate(frame.problemStatement || 'Untitled Frame', 30) },
+                  { label: t('frame.dashboard'), onClick: handleBack },
+                  { label: truncate(frame.problemStatement || t('dashboard.untitledFrame'), 30) },
                 ]}
               />
               <div className="flex items-center gap-2">
@@ -258,9 +260,9 @@ export default function FrameDetailPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bug">Bug Fix</SelectItem>
-                      <SelectItem value="feature">Feature</SelectItem>
-                      <SelectItem value="exploration">Exploration</SelectItem>
+                      <SelectItem value="bug">{t('type.bug')}</SelectItem>
+                      <SelectItem value="feature">{t('type.feature')}</SelectItem>
+                      <SelectItem value="exploration">{t('type.exploration')}</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -276,11 +278,11 @@ export default function FrameDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="in_review">In Review</SelectItem>
-                    <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="feedback">Feedback</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
+                    <SelectItem value="draft">{t('status.draft')}</SelectItem>
+                    <SelectItem value="in_review">{t('status.inReview')}</SelectItem>
+                    <SelectItem value="ready">{t('status.ready')}</SelectItem>
+                    <SelectItem value="feedback">{t('status.feedback')}</SelectItem>
+                    <SelectItem value="archived">{t('status.archived')}</SelectItem>
                   </SelectContent>
                 </Select>
                 {frame.aiScore !== undefined && (
@@ -322,7 +324,7 @@ export default function FrameDetailPage() {
                   ) : (
                     <Sparkles className="h-3.5 w-3.5" />
                   )}
-                  Evaluate
+                  {t('frame.evaluate')}
                 </Button>
               )}
               {isDraft && (
@@ -335,12 +337,12 @@ export default function FrameDetailPage() {
                   {isEditing ? (
                     <>
                       <Eye className="h-3.5 w-3.5" />
-                      Preview
+                      {t('frame.preview')}
                     </>
                   ) : (
                     <>
                       <Pencil className="h-3.5 w-3.5" />
-                      Edit
+                      {t('frame.edit')}
                     </>
                   )}
                 </Button>
@@ -367,7 +369,7 @@ export default function FrameDetailPage() {
                 {/* Problem Statement */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                    Problem Statement
+                    {t('section.problemStatement')}
                   </label>
                   <Textarea
                     value={frame.problemStatement}
@@ -376,10 +378,10 @@ export default function FrameDetailPage() {
                     }
                     placeholder={
                       frame.type === 'bug'
-                        ? "Describe what's broken - what should happen vs. what actually happens?"
+                        ? t('frame.placeholderBugProblem')
                         : frame.type === 'feature'
-                        ? "What capability is missing? What should users be able to do?"
-                        : "What question are you trying to answer? What uncertainty needs to be resolved?"
+                        ? t('frame.placeholderFeatureProblem')
+                        : t('frame.placeholderExplorationProblem')
                     }
                     className="min-h-[60px] border-slate-200 bg-slate-50 focus-visible:ring-1 resize-none"
                   />
@@ -391,7 +393,7 @@ export default function FrameDetailPage() {
                 {frame.type === 'bug' && (
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                      {rootCauseSection.title}
+                      {t(rootCauseSection.titleKey)}
                     </label>
                     <Textarea
                       value={frame.rootCause}
@@ -399,17 +401,17 @@ export default function FrameDetailPage() {
                         handleUpdateFrame({ rootCause: e.target.value })
                       }
                       onFocus={() => handleSectionFocus(rootCauseSection.key)}
-                      placeholder={rootCauseSection.placeholder}
+                      placeholder={t(rootCauseSection.placeholderKey)}
                       className="min-h-[150px] border-slate-200 bg-slate-50 focus-visible:ring-1 resize-y font-mono text-sm"
                     />
                   </div>
                 )}
 
                 {/* Content Sections */}
-                {baseSections.map(({ key, title, field, placeholder }) => (
+                {baseSections.map(({ key, titleKey, field, placeholderKey }) => (
                   <div key={key}>
                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                      {title}
+                      {t(titleKey)}
                     </label>
                     <Textarea
                       value={frame[field]}
@@ -417,7 +419,7 @@ export default function FrameDetailPage() {
                         handleUpdateFrame({ [field]: e.target.value })
                       }
                       onFocus={() => handleSectionFocus(key)}
-                      placeholder={placeholder}
+                      placeholder={t(placeholderKey)}
                       className="min-h-[150px] border-slate-200 bg-slate-50 focus-visible:ring-1 resize-y font-mono text-sm"
                     />
                   </div>
@@ -433,9 +435,9 @@ export default function FrameDetailPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-violet-500" />
-                    Content Quality Score
+                    {t('frame.contentQuality')}
                   </h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5 ml-6">AI assessment of the written frame content</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 ml-6">{t('frame.aiAssessment')}</p>
                 </div>
                 <span
                   className={cn(
@@ -483,7 +485,7 @@ export default function FrameDetailPage() {
               {/* Feedback */}
               {frame.aiFeedback && (
                 <div className="border-t border-slate-100 pt-4">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Feedback</h4>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t('frame.feedback')}</h4>
                   <div className="prose prose-sm prose-slate max-w-none">
                     <MarkdownContent content={frame.aiFeedback} />
                   </div>
@@ -493,7 +495,7 @@ export default function FrameDetailPage() {
               {/* Issues */}
               {frame.aiIssues && frame.aiIssues.length > 0 && (
                 <div className="border-t border-slate-100 pt-4">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Issues</h4>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t('frame.issues')}</h4>
                   <ul className="space-y-1.5">
                     {frame.aiIssues.map((issue, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
@@ -551,8 +553,8 @@ export default function FrameDetailPage() {
                     <MessageSquare className="h-4.5 w-4.5 text-violet-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-900">Source Conversation</h4>
-                    <p className="text-xs text-slate-500">The discussion that shaped this frame</p>
+                    <h4 className="text-sm font-semibold text-slate-900">{t('frame.sourceConversation')}</h4>
+                    <p className="text-xs text-slate-500">{t('frame.sourceConversationDesc')}</p>
                   </div>
                 </div>
                 <Button
@@ -562,7 +564,7 @@ export default function FrameDetailPage() {
                   className="gap-1.5"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  View Conversation
+                  {t('frame.viewConversation')}
                 </Button>
               </div>
             </div>
@@ -577,8 +579,8 @@ export default function FrameDetailPage() {
                     <Shield className="h-4.5 w-4.5 text-emerald-600" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-900">Review Conversation</h4>
-                    <p className="text-xs text-slate-500">AI-guided review discussion</p>
+                    <h4 className="text-sm font-semibold text-slate-900">{t('frame.reviewConversation')}</h4>
+                    <p className="text-xs text-slate-500">{t('frame.reviewConversationDesc')}</p>
                   </div>
                 </div>
                 <Button
@@ -588,7 +590,7 @@ export default function FrameDetailPage() {
                   className="gap-1.5"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  View Review
+                  {t('frame.viewReview')}
                 </Button>
               </div>
             </div>
@@ -616,7 +618,7 @@ export default function FrameDetailPage() {
                 }}
               >
                 <Shield className="h-4 w-4" />
-                Start Review Conversation
+                {t('frame.startReview')}
               </Button>
             </div>
           )}
@@ -627,7 +629,7 @@ export default function FrameDetailPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
                   <Shield className="h-4 w-4 text-emerald-500" />
-                  Review Summary
+                  {t('frame.reviewSummary')}
                 </h3>
                 {frame.reviewRecommendation && (
                   <Badge
@@ -643,7 +645,7 @@ export default function FrameDetailPage() {
               <p className="text-sm text-slate-700 leading-relaxed">{frame.reviewSummary}</p>
               {frame.reviewComments && frame.reviewComments.length > 0 && (
                 <div className="space-y-2 border-t border-slate-100 pt-4">
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Comments</h4>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('frame.comments')}</h4>
                   {frame.reviewComments.map((comment, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm">
                       <Badge
@@ -672,7 +674,7 @@ export default function FrameDetailPage() {
               <div className="rounded-xl border border-slate-200 bg-white p-6">
                 <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4 flex items-center gap-2">
                   <Clock className="h-4 w-4 text-slate-500" />
-                  Version History
+                  {t('frame.versionHistory')}
                   <span className="text-xs font-normal text-slate-400 ml-1">({history.length})</span>
                 </h3>
                 <div className="relative">
@@ -745,8 +747,8 @@ export default function FrameDetailPage() {
                     onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
                   >
                     {isHistoryExpanded
-                      ? 'Show less'
-                      : `Show ${hiddenCount} more version${hiddenCount > 1 ? 's' : ''}`}
+                      ? t('frame.showLess')
+                      : `${t('frame.showMore').replace('{n}', String(hiddenCount)).replace('{s}', hiddenCount > 1 ? 's' : '')}`}
                   </button>
                 )}
               </div>
@@ -757,15 +759,15 @@ export default function FrameDetailPage() {
           <div className="flex items-center justify-between text-sm text-slate-500 px-2">
             <div className="flex items-center gap-4">
               <span>
-                Owner: <span className="font-medium text-slate-700">{user?.name || user?.email}</span>
+                {t('frame.owner')} <span className="font-medium text-slate-700">{user?.name || user?.email}</span>
               </span>
               {frame.reviewer && (
                 <span>
-                  Reviewer: <span className="font-medium text-slate-700">{userMap[frame.reviewer] || frame.reviewer}</span>
+                  {t('frame.reviewer')} <span className="font-medium text-slate-700">{userMap[frame.reviewer] || frame.reviewer}</span>
                 </span>
               )}
             </div>
-            <span>Last updated: {formatDate(frame.updatedAt)}</span>
+            <span>{t('frame.lastUpdated')} {formatDate(frame.updatedAt)}</span>
           </div>
 
           {/* Spacer for fixed footer */}
@@ -782,8 +784,8 @@ export default function FrameDetailPage() {
               <Brain className="h-6 w-6 text-violet-500 animate-pulse" />
             </div>
             <div className="text-center">
-              <h3 className="text-sm font-semibold text-slate-900">Distilling Knowledge...</h3>
-              <p className="text-xs text-slate-500 mt-1">Extracting insights from your feedback via AI</p>
+              <h3 className="text-sm font-semibold text-slate-900">{t('frame.distillingKnowledge')}</h3>
+              <p className="text-xs text-slate-500 mt-1">{t('frame.extractingInsights')}</p>
             </div>
             <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
           </div>
@@ -807,10 +809,10 @@ export default function FrameDetailPage() {
             <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-slate-100">
               <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                 <Brain className="h-5 w-5 text-violet-500" />
-                Knowledge Extracted
+                {t('frame.knowledgeExtracted')}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {knowledgeResults.length} insight{knowledgeResults.length !== 1 ? 's' : ''} distilled from your feedback and saved to the knowledge base.
+                {t('frame.insightsDistilled').replace('{n}', String(knowledgeResults.length)).replace('{s}', knowledgeResults.length !== 1 ? 's' : '')}
               </p>
             </div>
 
@@ -878,7 +880,7 @@ export default function FrameDetailPage() {
                 setShowKnowledgeDialog(false);
                 router.push('/dashboard');
               }}>
-                Done
+                {t('frame.done')}
               </Button>
             </div>
           </div>
@@ -892,37 +894,37 @@ export default function FrameDetailPage() {
             <div className="text-sm text-slate-500">
               {isDraft && !isSaved && (
                 <span className="text-amber-600 mr-3">
-                  ● Unsaved
+                  ● {t('frame.unsaved')}
                 </span>
               )}
               {isDraft && isSaved && (
                 <span className="text-slate-400 mr-3">
-                  ✓ Saved
+                  ✓ {t('frame.saved')}
                 </span>
               )}
               {isDraft && isSaved && (
                 <span className="text-emerald-600">
-                  Ready to submit for review
+                  {t('frame.readyToSubmit')}
                 </span>
               )}
               {isInReview && (
                 <span className="text-amber-600">
-                  Under review - mark as ready when approved
+                  {t('frame.underReview')}
                 </span>
               )}
               {isReady && (
                 <span className="text-emerald-600">
-                  Ready for implementation
+                  {t('frame.readyForImpl')}
                 </span>
               )}
               {isFeedback && (
                 <span className="text-violet-600">
-                  Implementation complete - provide feedback
+                  {t('frame.implComplete')}
                 </span>
               )}
               {isArchived && (
                 <span className="text-slate-400">
-                  Archived with feedback
+                  {t('frame.archivedFeedback')}
                 </span>
               )}
             </div>
@@ -939,7 +941,7 @@ export default function FrameDetailPage() {
                       }}
                       className="text-slate-500 hover:text-red-600"
                     >
-                      Discard
+                      {t('frame.discard')}
                     </Button>
                   )}
                   <Button
@@ -949,7 +951,7 @@ export default function FrameDetailPage() {
                       handleBack();
                     }}
                   >
-                    Save Draft
+                    {t('frame.saveDraft')}
                   </Button>
                   {!showReviewerSelect ? (
                     <Button
@@ -968,13 +970,13 @@ export default function FrameDetailPage() {
                       }}
                       disabled={isLoading}
                     >
-                      Submit for Review
+                      {t('frame.submitForReview')}
                     </Button>
                   ) : (
                     <div className="flex items-center gap-2">
                       <Select value={selectedReviewer} onValueChange={setSelectedReviewer}>
                         <SelectTrigger className="w-44 h-9 text-sm">
-                          <SelectValue placeholder="Choose reviewer..." />
+                          <SelectValue placeholder={t('frame.chooseReviewer')} />
                         </SelectTrigger>
                         <SelectContent>
                           {users.map((u) => (
@@ -997,7 +999,7 @@ export default function FrameDetailPage() {
                         {isLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          'Confirm'
+                          t('frame.confirm')
                         )}
                       </Button>
                       <Button
@@ -1005,7 +1007,7 @@ export default function FrameDetailPage() {
                         size="sm"
                         onClick={() => setShowReviewerSelect(false)}
                       >
-                        Cancel
+                        {t('knowledge.cancel')}
                       </Button>
                     </div>
                   )}
@@ -1016,11 +1018,11 @@ export default function FrameDetailPage() {
               {isInReview && (
                 <>
                   <Button variant="outline" onClick={handleBack}>
-                    Back
+                    {t('frame.back')}
                   </Button>
                   <Button onClick={() => markAsReady(frame.id)} disabled={isLoading}>
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Mark as Ready
+                    {t('frame.markAsReady')}
                   </Button>
                 </>
               )}
@@ -1029,11 +1031,11 @@ export default function FrameDetailPage() {
               {isReady && (
                 <>
                   <Button variant="outline" onClick={handleBack}>
-                    Back
+                    {t('frame.back')}
                   </Button>
                   <Button onClick={() => startFeedback(frame.id)} disabled={isLoading}>
                     <Play className="h-4 w-4 mr-2" />
-                    Start Implementation
+                    {t('frame.startImplementation')}
                   </Button>
                 </>
               )}
@@ -1048,7 +1050,7 @@ export default function FrameDetailPage() {
               {/* Archived status actions */}
               {isArchived && (
                 <Button variant="outline" onClick={handleBack}>
-                  Back to Dashboard
+                  {t('frame.backToDashboard')}
                 </Button>
               )}
             </div>

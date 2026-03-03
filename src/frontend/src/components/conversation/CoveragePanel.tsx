@@ -3,45 +3,52 @@
 import React from 'react';
 import { ConversationState } from '@/types';
 import { cn } from '@/lib/utils';
+import { useT, type TranslationKey } from '@/lib/i18n';
 
 interface CoveragePanelProps {
   state: ConversationState;
 }
 
-const allSections = [
+const allSections: {
+  key: 'problemStatement' | 'rootCause' | 'userPerspective' | 'engineeringFraming' | 'validationThinking';
+  labelKey: TranslationKey;
+  descKey: TranslationKey;
+  bugOnly: boolean;
+}[] = [
   {
-    key: 'problemStatement' as const,
-    label: 'Problem Statement',
-    description: 'Clear, solution-free problem definition',
+    key: 'problemStatement',
+    labelKey: 'coverage.problemStatement',
+    descKey: 'coverage.problemStatementDesc',
     bugOnly: false,
   },
   {
-    key: 'rootCause' as const,
-    label: 'Root Cause',
-    description: 'Technical root cause analysis',
+    key: 'rootCause',
+    labelKey: 'coverage.rootCause',
+    descKey: 'coverage.rootCauseDesc',
     bugOnly: true,
   },
   {
-    key: 'userPerspective' as const,
-    label: 'User Perspective',
-    description: 'Who is affected, journey, pain points',
+    key: 'userPerspective',
+    labelKey: 'coverage.userPerspective',
+    descKey: 'coverage.userPerspectiveDesc',
     bugOnly: false,
   },
   {
-    key: 'engineeringFraming' as const,
-    label: 'Engineering Framing',
-    description: 'Principles, trade-offs, non-goals',
+    key: 'engineeringFraming',
+    labelKey: 'coverage.engineeringFraming',
+    descKey: 'coverage.engineeringFramingDesc',
     bugOnly: false,
   },
   {
-    key: 'validationThinking' as const,
-    label: 'Validation Thinking',
-    description: 'Structured test cases, success criteria',
+    key: 'validationThinking',
+    labelKey: 'coverage.validationThinking',
+    descKey: 'coverage.validationThinkingDesc',
     bugOnly: false,
   },
 ];
 
 export function CoveragePanel({ state }: CoveragePanelProps) {
+  const t = useT();
   const isBug = state.frameType === 'bug';
   const sections = allSections.filter((s) => !s.bugOnly || isBug);
   const sectionCount = sections.length;
@@ -54,7 +61,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
       <div>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Discussion Coverage
+            {t('coverage.title')}
           </h3>
           <span
             className={cn(
@@ -67,7 +74,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
             {Math.round(overallCoverage * 100)}%
           </span>
         </div>
-        <p className="text-[10px] text-slate-400 mb-2">How much of each topic has been discussed</p>
+        <p className="text-[10px] text-slate-400 mb-2">{t('coverage.desc')}</p>
         {/* Overall progress */}
         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
@@ -89,7 +96,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
             <div key={section.key}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-slate-700">
-                  {section.label}
+                  {t(section.labelKey)}
                 </span>
                 <span className="text-xs text-slate-500">{pct}%</span>
               </div>
@@ -107,7 +114,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
                 />
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                {section.description}
+                {t(section.descKey)}
               </p>
             </div>
           );
@@ -117,7 +124,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
       {state.gaps.length > 0 && (
         <div>
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Gaps
+            {t('coverage.gaps')}
           </h4>
           <ul className="space-y-1">
             {state.gaps.map((gap, i) => (
@@ -131,7 +138,7 @@ export function CoveragePanel({ state }: CoveragePanelProps) {
 
       {state.frameType && (
         <div className="text-xs text-slate-500">
-          Detected type:{' '}
+          {t('coverage.detectedType')}{' '}
           <span className="font-medium text-slate-700 capitalize">
             {state.frameType}
           </span>

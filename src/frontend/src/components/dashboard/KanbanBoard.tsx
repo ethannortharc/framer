@@ -5,18 +5,19 @@ import { Frame, FrameStatus, FrameType } from '@/types';
 import { FrameCard } from './FrameCard';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useT, type TranslationKey } from '@/lib/i18n';
 
 interface KanbanColumn {
   status: FrameStatus;
-  title: string;
+  titleKey: TranslationKey;
   bgColor?: string;
 }
 
 const columns: KanbanColumn[] = [
-  { status: 'draft', title: 'Draft' },
-  { status: 'in_review', title: 'In Review' },
-  { status: 'ready', title: 'Ready' },
-  { status: 'feedback', title: 'Feedback', bgColor: 'bg-violet-50/70' },
+  { status: 'draft', titleKey: 'status.draft' },
+  { status: 'in_review', titleKey: 'status.inReview' },
+  { status: 'ready', titleKey: 'status.ready' },
+  { status: 'feedback', titleKey: 'status.feedback', bgColor: 'bg-violet-50/70' },
 ];
 
 interface KanbanBoardProps {
@@ -35,6 +36,7 @@ export function KanbanBoard({
   onFrameClick,
 }: KanbanBoardProps) {
   const { user } = useAuthContext();
+  const t = useT();
 
   // Filter frames
   const filteredFrames = frames.filter((frame) => {
@@ -65,7 +67,7 @@ export function KanbanBoard({
     }
     // For other users, we'd need to fetch from API - for now use placeholder
     return {
-      name: 'Team Member',
+      name: t('common.teamMember'),
       initials: 'TM',
     };
   };
@@ -93,6 +95,7 @@ interface KanbanColumnComponentProps {
 }
 
 function KanbanColumnComponent({ column, frames, getOwnerInfo, onFrameClick }: KanbanColumnComponentProps) {
+  const t = useT();
   return (
     <div
       className={cn(
@@ -104,7 +107,7 @@ function KanbanColumnComponent({ column, frames, getOwnerInfo, onFrameClick }: K
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-slate-700">
-            {column.title}
+            {t(column.titleKey)}
           </h3>
           <span
             className={cn(
@@ -136,7 +139,7 @@ function KanbanColumnComponent({ column, frames, getOwnerInfo, onFrameClick }: K
 
         {frames.length === 0 && (
           <div className="text-center py-8 text-sm text-slate-400">
-            No frames
+            {t('dashboard.noFrames')}
           </div>
         )}
       </div>

@@ -7,33 +7,32 @@ import { useFrameStore } from '@/store';
 import { useProjectStore } from '@/store/projectStore';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { useT, type TranslationKey } from '@/lib/i18n';
 
 interface LeftNavProps {
   onSettingsClick: () => void;
 }
 
-const navItems: { id: AppSpace; label: string; icon: React.ElementType; description: string }[] = [
+const navItems: { id: AppSpace; labelKey: TranslationKey; icon: React.ElementType }[] = [
   {
     id: 'working',
-    label: 'Working Space',
+    labelKey: 'nav.workingSpace',
     icon: Briefcase,
-    description: 'Active frames',
   },
   {
     id: 'knowledge',
-    label: 'Knowledge',
+    labelKey: 'nav.knowledge',
     icon: Brain,
-    description: 'Team learnings',
   },
   {
     id: 'archive',
-    label: 'Archive',
+    labelKey: 'nav.archive',
     icon: Archive,
-    description: 'Completed frames',
   },
 ];
 
 export function LeftNav({ onSettingsClick }: LeftNavProps) {
+  const t = useT();
   const { currentSpace, setCurrentSpace, getWorkingFrames, getArchivedFrames, loadFrames } = useFrameStore();
   const { projects, currentProjectId, setCurrentProject } = useProjectStore();
   const { user, logout } = useAuthContext();
@@ -79,10 +78,10 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
       {/* Logo */}
       <div className="px-4 py-5 border-b border-slate-700">
         <h1 className="text-lg font-bold text-white tracking-tight">
-          Framer
+          {t('nav.title')}
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Pre-dev thinking framework
+          {t('nav.subtitle')}
         </p>
       </div>
 
@@ -90,7 +89,7 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
       {projects.length > 0 && (
         <div className="px-3 pt-3 pb-2 border-b border-slate-700" ref={dropdownRef}>
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1 mb-1.5 block">
-            Project
+            {t('nav.project')}
           </span>
           <button
             onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
@@ -98,7 +97,7 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
           >
             <FolderKanban className="h-4 w-4 text-violet-400 flex-shrink-0" />
             <span className="flex-1 text-left truncate">
-              {currentProject?.name || 'No project'}
+              {currentProject?.name || t('nav.noProject')}
             </span>
             <ChevronDown className={cn(
               'h-3.5 w-3.5 text-slate-400 transition-transform',
@@ -131,7 +130,7 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
       <nav className="flex-1 py-4">
         <div className="px-3 mb-2">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Spaces
+            {t('nav.spaces')}
           </span>
         </div>
         <ul className="space-y-1 px-2">
@@ -156,7 +155,7 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
                     isActive ? 'text-violet-400' : 'text-slate-500'
                   )} />
                   <span className="flex-1 text-left text-sm font-medium">
-                    {item.label}
+                    {t(item.labelKey)}
                   </span>
                   {count !== null && (
                     <span className={cn(
@@ -197,7 +196,7 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
               <button
                 onClick={logout}
                 className="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                title="Sign out"
+                title={t('nav.signOut')}
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -212,7 +211,7 @@ export function LeftNav({ onSettingsClick }: LeftNavProps) {
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 text-slate-400 hover:text-slate-200 transition-colors"
           >
             <Settings className="h-4.5 w-4.5 text-slate-500" />
-            <span className="text-sm font-medium">Settings</span>
+            <span className="text-sm font-medium">{t('nav.settings')}</span>
           </button>
         </div>
       </div>

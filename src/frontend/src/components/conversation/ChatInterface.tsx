@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useFrameStore } from '@/store';
 import { pickLang } from '@/lib/api/transforms';
+import { useT } from '@/lib/i18n';
 
 interface ChatInterfaceProps {
   messages: ConversationMessage[];
@@ -28,6 +29,7 @@ export function ChatInterface({
   botName = 'Coach',
 }: ChatInterfaceProps) {
   const contentLanguage = useFrameStore((s) => s.contentLanguage);
+  const t = useT();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -69,12 +71,10 @@ export function ChatInterface({
           <div className="text-center py-12">
             <Bot className="h-10 w-10 text-slate-300 mx-auto mb-3" />
             <h3 className="text-sm font-medium text-slate-700 mb-1">
-              Start a conversation
+              {t('chat.startConversation')}
             </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              Describe what you&apos;re working on. I&apos;ll help you frame the
-              problem, understand the user perspective, and define validation
-              criteria.
+              {t('chat.startDesc')}
             </p>
           </div>
         )}
@@ -110,14 +110,14 @@ export function ChatInterface({
               </div>
               {msg.status === 'failed' && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-red-500">Failed to send</span>
+                  <span className="text-[11px] text-red-500">{t('chat.failedToSend')}</span>
                   {onRetryMessage && (
                     <button
                       onClick={() => onRetryMessage(msg.id)}
                       className="flex items-center gap-1 text-[11px] text-red-600 hover:text-red-700 font-medium"
                     >
                       <RotateCcw className="h-3 w-3" />
-                      Retry
+                      {t('chat.retry')}
                     </button>
                   )}
                 </div>
@@ -162,7 +162,7 @@ export function ChatInterface({
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder="Describe what you're working on..."
+            placeholder={t('chat.placeholder')}
             disabled={disabled || isTyping}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"

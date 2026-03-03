@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Loader2, ThumbsUp, AlertTriangle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT, type TranslationKey } from '@/lib/i18n';
 
 type Outcome = 'success' | 'partial' | 'failed';
 
-const outcomes: { value: Outcome; label: string; icon: React.ReactNode; color: string }[] = [
-  { value: 'success', label: 'Success', icon: <ThumbsUp className="h-4 w-4" />, color: 'border-emerald-300 bg-emerald-50 text-emerald-700 ring-emerald-500' },
-  { value: 'partial', label: 'Partial', icon: <AlertTriangle className="h-4 w-4" />, color: 'border-amber-300 bg-amber-50 text-amber-700 ring-amber-500' },
-  { value: 'failed', label: 'Failed', icon: <XCircle className="h-4 w-4" />, color: 'border-red-300 bg-red-50 text-red-700 ring-red-500' },
+const outcomes: { value: Outcome; labelKey: TranslationKey; icon: React.ReactNode; color: string }[] = [
+  { value: 'success', labelKey: 'feedbackForm.success', icon: <ThumbsUp className="h-4 w-4" />, color: 'border-emerald-300 bg-emerald-50 text-emerald-700 ring-emerald-500' },
+  { value: 'partial', labelKey: 'feedbackForm.partial', icon: <AlertTriangle className="h-4 w-4" />, color: 'border-amber-300 bg-amber-50 text-amber-700 ring-amber-500' },
+  { value: 'failed', labelKey: 'feedbackForm.failed', icon: <XCircle className="h-4 w-4" />, color: 'border-red-300 bg-red-50 text-red-700 ring-red-500' },
 ];
 
 interface FeedbackFormProps {
@@ -29,6 +30,7 @@ export function FeedbackForm({ onSubmit, isLoading = false }: FeedbackFormProps)
   const [lessonsText, setLessonsText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const t = useT();
   const canSubmit = outcome !== null && summary.trim().length > 0 && !isSubmitting;
 
   const handleSubmit = async () => {
@@ -54,13 +56,13 @@ export function FeedbackForm({ onSubmit, isLoading = false }: FeedbackFormProps)
   return (
     <div className="rounded-xl border-2 border-violet-200 bg-white p-6 space-y-5">
       <h3 className="text-sm font-semibold text-violet-700 uppercase tracking-wide">
-        Implementation Feedback
+        {t('feedbackForm.title')}
       </h3>
 
       {/* Outcome - clickable buttons */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-2">
-          How did the implementation go?
+          {t('feedbackForm.howDidItGo')}
         </label>
         <div className="flex gap-2">
           {outcomes.map((o) => (
@@ -76,7 +78,7 @@ export function FeedbackForm({ onSubmit, isLoading = false }: FeedbackFormProps)
               )}
             >
               {o.icon}
-              {o.label}
+              {t(o.labelKey)}
             </button>
           ))}
         </div>
@@ -85,12 +87,12 @@ export function FeedbackForm({ onSubmit, isLoading = false }: FeedbackFormProps)
       {/* Summary */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1.5">
-          Summary <span className="text-red-400">*</span>
+          {t('feedbackForm.summary')} <span className="text-red-400">*</span>
         </label>
         <Textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
-          placeholder="Briefly describe what happened during implementation..."
+          placeholder={t('feedbackForm.summaryPlaceholder')}
           className="min-h-[80px] resize-y"
         />
       </div>
@@ -98,12 +100,12 @@ export function FeedbackForm({ onSubmit, isLoading = false }: FeedbackFormProps)
       {/* Lessons Learned */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1.5">
-          Lessons Learned <span className="text-slate-400">(one per line, optional)</span>
+          {t('feedbackForm.lessons')} <span className="text-slate-400">{t('feedbackForm.lessonsOptional')}</span>
         </label>
         <Textarea
           value={lessonsText}
           onChange={(e) => setLessonsText(e.target.value)}
-          placeholder={"What would you do differently?\nWhat assumptions were wrong?\nWhat worked well?"}
+          placeholder={t('feedbackForm.lessonsPlaceholder')}
           className="min-h-[100px] resize-y font-mono text-sm"
         />
       </div>
@@ -118,19 +120,19 @@ export function FeedbackForm({ onSubmit, isLoading = false }: FeedbackFormProps)
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Submitting...
+            {t('feedbackForm.submitting')}
           </>
         ) : (
           <>
             <CheckCircle className="h-4 w-4" />
-            Complete with Feedback
+            {t('feedbackForm.complete')}
           </>
         )}
       </Button>
 
       {!canSubmit && !loading && (
         <p className="text-[11px] text-slate-400 text-center">
-          Select an outcome and write a summary to submit
+          {t('feedbackForm.hint')}
         </p>
       )}
     </div>

@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FrameSection as FrameSectionType, ReviewComment } from '@/types';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 
 interface FrameSectionProps {
   title: string;
@@ -56,6 +57,7 @@ export function FrameSection({
   comments,
   onAddComment,
 }: FrameSectionProps) {
+  const t = useT();
   return (
     <div
       onClick={onFocus}
@@ -95,7 +97,7 @@ export function FrameSection({
             </span>
           )}
           {isEmpty && !isCollapsed && (
-            <span className="text-xs text-slate-400 ml-2">Empty</span>
+            <span className="text-xs text-slate-400 ml-2">{t('frameSection.empty')}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -110,7 +112,7 @@ export function FrameSection({
               className="text-violet-600 gap-1.5 h-7 hover:bg-violet-50"
             >
               <ClipboardList className="h-3.5 w-3.5" />
-              <span className="text-xs">Questionnaire</span>
+              <span className="text-xs">{t('frameSection.questionnaire')}</span>
             </Button>
           )}
           {isReadOnly && onAddComment && (
@@ -124,7 +126,7 @@ export function FrameSection({
               className="text-slate-500 gap-1.5 h-7"
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              <span className="text-xs">Comment</span>
+              <span className="text-xs">{t('frameSection.comment')}</span>
             </Button>
           )}
         </div>
@@ -138,7 +140,7 @@ export function FrameSection({
               <div className="text-center py-8">
                 <HelpCircle className="h-8 w-8 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-500 mb-4">
-                  This section is empty. Use the questionnaire to get started, or add content manually.
+                  {t('frameSection.emptyDesc')}
                 </p>
                 {onStartQuestionnaire && (
                   <Button
@@ -150,7 +152,7 @@ export function FrameSection({
                     className="gap-2"
                   >
                     <ClipboardList className="h-4 w-4" />
-                    Start Questionnaire
+                    {t('frameSection.startQuestionnaire')}
                   </Button>
                 )}
               </div>
@@ -172,7 +174,7 @@ export function FrameSection({
                 className="text-slate-600 gap-1.5 text-xs h-7"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                Regenerate
+                {t('frameSection.regenerate')}
               </Button>
               <Button
                 variant="ghost"
@@ -184,7 +186,7 @@ export function FrameSection({
                 className="text-slate-600 gap-1.5 text-xs h-7"
               >
                 <Wand2 className="h-3.5 w-3.5" />
-                Improve
+                {t('frameSection.improve')}
               </Button>
               <Button
                 variant="ghost"
@@ -196,7 +198,7 @@ export function FrameSection({
                 className="text-slate-600 gap-1.5 text-xs h-7"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
-                Refine...
+                {t('frameSection.refine')}
               </Button>
             </div>
           )}
@@ -219,12 +221,13 @@ interface EditableListProps {
 export function EditableList({
   items,
   onChange,
-  placeholder = 'Add item...',
+  placeholder,
   isReadOnly = false,
   minItems = 0,
   ordered = true,
 }: EditableListProps) {
   const [newItem, setNewItem] = useState('');
+  const t = useT();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
@@ -368,13 +371,13 @@ export function EditableList({
           className="h-8 gap-1"
         >
           <Plus className="h-3.5 w-3.5" />
-          Add
+          {t('frameSection.add')}
         </Button>
       </div>
 
       {minItems > 0 && items.length < minItems && (
         <p className="text-xs text-amber-600 mt-1">
-          Minimum {minItems} items required ({minItems - items.length} more needed)
+          {t('frameSection.minItems').replace('{n}', String(minItems)).replace('{m}', String(minItems - items.length))}
         </p>
       )}
     </div>
@@ -425,6 +428,7 @@ export function EditableText({
 }: EditableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+  const t = useT();
 
   const handleSave = () => {
     onChange(editValue);
@@ -440,7 +444,7 @@ export function EditableText({
     if (!value) {
       return (
         <p className="text-sm text-slate-400 italic">
-          {placeholder || 'Not specified'}
+          {placeholder || t('frameSection.notSpecified')}
         </p>
       );
     }
@@ -473,10 +477,10 @@ export function EditableText({
         )}
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSave}>
-            Save
+            {t('frameSection.save')}
           </Button>
           <Button size="sm" variant="outline" onClick={handleCancel}>
-            Cancel
+            {t('frameSection.cancel')}
           </Button>
         </div>
       </div>
@@ -495,11 +499,11 @@ export function EditableText({
         <p className="text-sm text-slate-700 leading-relaxed">{value}</p>
       ) : (
         <p className="text-sm text-slate-400 italic">
-          {placeholder || 'Click to add...'}
+          {placeholder || t('frameSection.clickToAdd')}
         </p>
       )}
       <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-        Click to edit
+        {t('frameSection.clickToEdit')}
       </span>
     </div>
   );
@@ -512,10 +516,11 @@ interface TextContentProps {
 }
 
 export function TextContent({ content, placeholder }: TextContentProps) {
+  const t = useT();
   if (!content) {
     return (
       <p className="text-sm text-slate-400 italic">
-        {placeholder || 'Click to add content...'}
+        {placeholder || t('frameSection.clickToAdd')}
       </p>
     );
   }

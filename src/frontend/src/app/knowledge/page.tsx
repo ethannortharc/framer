@@ -43,16 +43,17 @@ import {
   PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT, type TranslationKey } from '@/lib/i18n';
 
 const categoryConfig: Record<
   KnowledgeCategory,
-  { label: string; icon: React.ElementType; color: string }
+  { labelKey: TranslationKey; icon: React.ElementType; color: string }
 > = {
-  pattern: { label: 'Pattern', icon: GitBranch, color: 'text-violet-600 bg-violet-100' },
-  decision: { label: 'Decision', icon: Target, color: 'text-blue-600 bg-blue-100' },
-  prediction: { label: 'Prediction', icon: Lightbulb, color: 'text-amber-600 bg-amber-100' },
-  context: { label: 'Context', icon: FileText, color: 'text-emerald-600 bg-emerald-100' },
-  lesson: { label: 'Lesson', icon: GraduationCap, color: 'text-rose-600 bg-rose-100' },
+  pattern: { labelKey: 'knowledge.pattern', icon: GitBranch, color: 'text-violet-600 bg-violet-100' },
+  decision: { labelKey: 'knowledge.decision', icon: Target, color: 'text-blue-600 bg-blue-100' },
+  prediction: { labelKey: 'knowledge.prediction', icon: Lightbulb, color: 'text-amber-600 bg-amber-100' },
+  context: { labelKey: 'knowledge.context', icon: FileText, color: 'text-emerald-600 bg-emerald-100' },
+  lesson: { labelKey: 'knowledge.lesson', icon: GraduationCap, color: 'text-rose-600 bg-rose-100' },
 };
 
 const allCategories: KnowledgeCategory[] = [
@@ -80,6 +81,7 @@ export default function KnowledgePage() {
     setSelectedCategory,
   } = useKnowledgeStore();
 
+  const t = useT();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,11 +166,11 @@ export default function KnowledgePage() {
   const getSourceInfo = (source: string) => {
     switch (source) {
       case 'feedback':
-        return { label: 'Frame Feedback', icon: ThumbsUp, color: 'text-emerald-600 bg-emerald-50' };
+        return { label: t('knowledge.sourceFeedback'), icon: ThumbsUp, color: 'text-emerald-600 bg-emerald-50' };
       case 'conversation':
-        return { label: 'Conversation', icon: MessageSquare, color: 'text-violet-600 bg-violet-50' };
+        return { label: t('knowledge.sourceConversation'), icon: MessageSquare, color: 'text-violet-600 bg-violet-50' };
       case 'manual':
-        return { label: 'Manual', icon: PenLine, color: 'text-slate-600 bg-slate-100' };
+        return { label: t('knowledge.sourceManual'), icon: PenLine, color: 'text-slate-600 bg-slate-100' };
       default:
         return { label: source, icon: FileText, color: 'text-slate-600 bg-slate-100' };
     }
@@ -190,15 +192,15 @@ export default function KnowledgePage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">
-                Knowledge Base
+                {t('knowledge.title')}
               </h1>
               <p className="text-sm text-slate-500 mt-1">
-                Team patterns, decisions, and lessons learned
+                {t('knowledge.subtitle')}
               </p>
             </div>
             <Button onClick={() => setShowAddModal(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Add Knowledge
+              {t('knowledge.addKnowledge')}
             </Button>
           </div>
 
@@ -211,12 +213,12 @@ export default function KnowledgePage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Search knowledge semantically..."
+                placeholder={t('knowledge.searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
               />
             </div>
             <Button variant="outline" onClick={handleSearch}>
-              Search
+              {t('knowledge.search')}
             </Button>
           </div>
 
@@ -231,7 +233,7 @@ export default function KnowledgePage() {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               )}
             >
-              All
+              {t('knowledge.all')}
             </button>
             {allCategories.map((cat) => {
               const config = categoryConfig[cat];
@@ -246,7 +248,7 @@ export default function KnowledgePage() {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   )}
                 >
-                  {config.label}
+                  {t(config.labelKey)}
                 </button>
               );
             })}
@@ -269,8 +271,8 @@ export default function KnowledgePage() {
               <BookOpen className="h-10 w-10 text-slate-300 mx-auto mb-3" />
               <p className="text-sm text-slate-500">
                 {isSearching
-                  ? 'No matching knowledge found'
-                  : 'No knowledge entries yet. Add your first one!'}
+                  ? t('knowledge.noMatch')
+                  : t('knowledge.empty')}
               </p>
             </div>
           ) : (
@@ -307,7 +309,7 @@ export default function KnowledgePage() {
                         <Icon className="h-3.5 w-3.5" />
                       </div>
                       <h3 className="text-sm font-medium text-slate-900 flex-1 truncate">
-                        {entry.title || 'Untitled'}
+                        {entry.title || t('knowledge.untitled')}
                       </h3>
                       {/* Source badge — always visible */}
                       <span className={cn(
@@ -347,14 +349,14 @@ export default function KnowledgePage() {
                         {/* Source detail */}
                         <div className="flex items-center gap-1.5 text-xs text-slate-400">
                           <SourceIcon className="h-3 w-3" />
-                          <span>Source: <span className="text-slate-500 font-medium">{sourceInfo.label}</span></span>
+                          <span>{t('knowledge.source')} <span className="text-slate-500 font-medium">{sourceInfo.label}</span></span>
                           {entry.sourceId && (
                             <span className="text-slate-300">({entry.sourceId.slice(0, 20)}...)</span>
                           )}
                           {entry.author && (
                             <>
                               <span className="text-slate-300 mx-1">|</span>
-                              <span>by <span className="text-slate-500">{entry.author}</span></span>
+                              <span>{t('knowledge.by')} <span className="text-slate-500">{entry.author}</span></span>
                             </>
                           )}
                           {entry.createdAt && (
@@ -444,16 +446,16 @@ export default function KnowledgePage() {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Knowledge</DialogTitle>
+            <DialogTitle>{t('knowledge.addTitle')}</DialogTitle>
             <DialogDescription>
-              Record a pattern, decision, or lesson for the team
+              {t('knowledge.addDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Title
+                {t('knowledge.titleLabel')}
               </label>
               <input
                 type="text"
@@ -461,14 +463,14 @@ export default function KnowledgePage() {
                 onChange={(e) =>
                   setNewEntry({ ...newEntry, title: e.target.value })
                 }
-                placeholder="Short descriptive title"
+                placeholder={t('knowledge.titlePlaceholder')}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Category
+                {t('knowledge.categoryLabel')}
               </label>
               <Select
                 value={newEntry.category}
@@ -485,7 +487,7 @@ export default function KnowledgePage() {
                 <SelectContent>
                   {allCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
-                      {categoryConfig[cat].label}
+                      {t(categoryConfig[cat].labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -494,21 +496,21 @@ export default function KnowledgePage() {
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Content
+                {t('knowledge.contentLabel')}
               </label>
               <Textarea
                 value={newEntry.content}
                 onChange={(e) =>
                   setNewEntry({ ...newEntry, content: e.target.value })
                 }
-                placeholder="The pattern, decision, or lesson..."
+                placeholder={t('knowledge.contentPlaceholder')}
                 className="min-h-[100px]"
               />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Tags (comma-separated)
+                {t('knowledge.tagsLabel')}
               </label>
               <input
                 type="text"
@@ -516,7 +518,7 @@ export default function KnowledgePage() {
                 onChange={(e) =>
                   setNewEntry({ ...newEntry, tags: e.target.value })
                 }
-                placeholder="auth, database, performance"
+                placeholder={t('knowledge.tagsPlaceholder')}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
@@ -527,13 +529,13 @@ export default function KnowledgePage() {
               variant="outline"
               onClick={() => setShowAddModal(false)}
             >
-              Cancel
+              {t('knowledge.cancel')}
             </Button>
             <Button
               onClick={handleCreateEntry}
               disabled={!newEntry.title.trim() || !newEntry.content.trim()}
             >
-              Add Entry
+              {t('knowledge.addEntry')}
             </Button>
           </div>
         </DialogContent>
@@ -543,13 +545,13 @@ export default function KnowledgePage() {
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Settings</DialogTitle>
+            <DialogTitle>{t('settings.title')}</DialogTitle>
             <DialogDescription>
-              Configure your Framer preferences
+              {t('settings.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 text-sm text-slate-500">
-            Settings panel coming soon.
+            {t('settings.comingSoon')}
           </div>
         </DialogContent>
       </Dialog>

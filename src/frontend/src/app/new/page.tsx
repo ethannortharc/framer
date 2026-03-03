@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { getAPIClient } from '@/lib/api';
 import { transformFrameResponse, pickLang } from '@/lib/api/transforms';
 import { useFrameStore } from '@/store';
+import { useT } from '@/lib/i18n';
 import type { Frame } from '@/types';
 
 export default function NewFramePage() {
@@ -40,6 +41,7 @@ export default function NewFramePage() {
   } = useConversationStore();
 
   const { contentLanguage, setContentLanguage } = useFrameStore();
+  const t = useT();
   const [isLocked, setIsLocked] = useState(false);
   const [linkedFrame, setLinkedFrame] = useState<Frame | null>(null);
 
@@ -134,14 +136,14 @@ export default function NewFramePage() {
               </button>
               <div>
                 <h1 className="text-sm font-semibold text-slate-900">
-                  {isReview ? 'Review Conversation' : hasLinkedFrame ? 'Continue Conversation' : 'New Frame'}
+                  {isReview ? t('new.reviewConversation') : hasLinkedFrame ? t('new.continueConversation') : t('new.title')}
                 </h1>
                 <p className="text-xs text-slate-500">
                   {isReview
-                    ? 'Discuss this frame with the Review Coach'
+                    ? t('new.reviewPrompt')
                     : hasLinkedFrame
-                    ? 'Continue refining — re-synthesize to update your frame'
-                    : "Describe your problem and I'll help you frame it"}
+                    ? t('new.continuePrompt')
+                    : t('new.describePrompt')}
                 </p>
               </div>
             </div>
@@ -169,7 +171,7 @@ export default function NewFramePage() {
           <div className="flex-shrink-0 bg-amber-50 border-b border-amber-200 px-6 py-2">
             <div className="flex items-center gap-2 text-amber-700 text-xs">
               <Lock className="h-3.5 w-3.5" />
-              This conversation is locked because the frame is under review.
+              {t('new.lockedBanner')}
             </div>
           </div>
         )}
@@ -183,7 +185,7 @@ export default function NewFramePage() {
             onRetryMessage={retryMessage}
             disabled={!activeConversation || isLocked}
             userName={user?.name || user?.email}
-            botName={isReview ? 'Review Coach' : 'Coach'}
+            botName={isReview ? t('chat.reviewCoach') : t('chat.coach')}
           />
         </div>
       </div>
@@ -196,16 +198,16 @@ export default function NewFramePage() {
             <div className="space-y-4">
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
-                Frame Context
+                {t('new.frameContext')}
               </h3>
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Problem</h4>
+                  <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">{t('new.problem')}</h4>
                   <p className="text-xs text-slate-600 leading-relaxed">{pickLang(linkedFrame.problemStatement, linkedFrame.problemStatementEn, linkedFrame.problemStatementZh, contentLanguage)}</p>
                 </div>
                 {linkedFrame.userPerspective && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">User Perspective</h4>
+                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">{t('section.userPerspective')}</h4>
                     <div className="text-xs text-slate-600 leading-relaxed prose prose-xs max-w-none">
                       <MarkdownContent content={pickLang(linkedFrame.userPerspective, linkedFrame.userPerspectiveEn, linkedFrame.userPerspectiveZh, contentLanguage)} />
                     </div>
@@ -213,7 +215,7 @@ export default function NewFramePage() {
                 )}
                 {linkedFrame.engineeringFraming && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Engineering</h4>
+                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">{t('section.engineeringFraming')}</h4>
                     <div className="text-xs text-slate-600 leading-relaxed prose prose-xs max-w-none">
                       <MarkdownContent content={pickLang(linkedFrame.engineeringFraming, linkedFrame.engineeringFramingEn, linkedFrame.engineeringFramingZh, contentLanguage)} />
                     </div>
@@ -221,7 +223,7 @@ export default function NewFramePage() {
                 )}
                 {linkedFrame.validationThinking && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Validation</h4>
+                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">{t('section.validationThinking')}</h4>
                     <div className="text-xs text-slate-600 leading-relaxed prose prose-xs max-w-none">
                       <MarkdownContent content={pickLang(linkedFrame.validationThinking, linkedFrame.validationThinkingEn, linkedFrame.validationThinkingZh, contentLanguage)} />
                     </div>
@@ -256,12 +258,12 @@ export default function NewFramePage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Summarizing...
+                    {t('new.summarizing')}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Summarize Review
+                    {t('new.summarizeReview')}
                   </>
                 )}
               </Button>
@@ -271,7 +273,7 @@ export default function NewFramePage() {
                   className="w-full"
                   onClick={() => router.push(`/frame/${activeConversation!.frameId}`)}
                 >
-                  View Frame
+                  {t('new.viewFrame')}
                 </Button>
               )}
             </>
@@ -298,12 +300,12 @@ export default function NewFramePage() {
                 {isPreviewing ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating Preview...
+                    {t('new.generatingPreview')}
                   </>
                 ) : (
                   <>
                     <Eye className="h-4 w-4" />
-                    Preview Frame
+                    {t('new.previewFrame')}
                   </>
                 )}
               </Button>
@@ -315,12 +317,12 @@ export default function NewFramePage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {hasLinkedFrame ? 'Updating...' : 'Synthesizing...'}
+                    {hasLinkedFrame ? t('new.updating') : t('new.synthesizing')}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    {hasLinkedFrame ? 'Update Frame' : 'Synthesize Frame'}
+                    {hasLinkedFrame ? t('new.updateFrame') : t('new.synthesizeFrame')}
                   </>
                 )}
               </Button>
@@ -332,7 +334,7 @@ export default function NewFramePage() {
                     router.push(`/frame/${activeConversation!.frameId}`)
                   }
                 >
-                  View Frame
+                  {t('new.viewFrame')}
                 </Button>
               )}
             </>
@@ -346,7 +348,7 @@ export default function NewFramePage() {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col mx-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Frame Preview</h2>
+              <h2 className="text-lg font-semibold text-slate-900">{t('new.framePreview')}</h2>
               <button
                 onClick={clearPreview}
                 className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
@@ -359,7 +361,7 @@ export default function NewFramePage() {
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
               {previewContent.problem_statement && (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Problem Statement</h3>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">{t('section.problemStatement')}</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
                     <MarkdownContent content={pickLang(
                       previewContent.problem_statement || '',
@@ -372,7 +374,7 @@ export default function NewFramePage() {
               )}
               {previewContent.root_cause && (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Root Cause</h3>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">{t('section.rootCause')}</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
                     <MarkdownContent content={pickLang(
                       previewContent.root_cause || '',
@@ -385,7 +387,7 @@ export default function NewFramePage() {
               )}
               {previewContent.user_perspective && (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">User Perspective</h3>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">{t('section.userPerspective')}</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
                     <MarkdownContent content={pickLang(
                       previewContent.user_perspective || '',
@@ -398,7 +400,7 @@ export default function NewFramePage() {
               )}
               {previewContent.engineering_framing && (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Engineering Framing</h3>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">{t('section.engineeringFraming')}</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
                     <MarkdownContent content={pickLang(
                       previewContent.engineering_framing || '',
@@ -411,7 +413,7 @@ export default function NewFramePage() {
               )}
               {previewContent.validation_thinking && (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-2">Validation Thinking</h3>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">{t('section.validationThinking')}</h3>
                   <div className="prose prose-sm max-w-none text-slate-600">
                     <MarkdownContent content={pickLang(
                       previewContent.validation_thinking || '',
@@ -427,7 +429,7 @@ export default function NewFramePage() {
             {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200">
               <Button variant="outline" onClick={clearPreview}>
-                Close
+                {t('new.close')}
               </Button>
               <Button
                 className="gap-2"
@@ -438,7 +440,7 @@ export default function NewFramePage() {
                 disabled={isLoading}
               >
                 <Sparkles className="h-4 w-4" />
-                {hasLinkedFrame ? 'Update Frame' : 'Synthesize Frame'}
+                {hasLinkedFrame ? t('new.updateFrame') : t('new.synthesizeFrame')}
               </Button>
             </div>
           </div>
