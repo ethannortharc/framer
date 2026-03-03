@@ -448,6 +448,19 @@ export class FramerAPIClient {
     return this.request<CommentResponse[]>(`/api/frames/${frameId}/comments`);
   }
 
+  /**
+   * Respond to a review comment (confirm, reject, or reply)
+   */
+  async respondToReviewComment(frameId: string, commentId: string, data: {
+    action: 'confirm' | 'reject' | 'reply';
+    reply?: string;
+  }): Promise<FrameResponse> {
+    return this.request<FrameResponse>(`/api/frames/${frameId}/review-comments/${commentId}/respond`, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
   // ==================== Frame History ====================
 
   /**

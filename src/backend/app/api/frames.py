@@ -48,6 +48,12 @@ class SubmitFeedbackRequest(BaseModel):
     lessons_learned: list[str] = Field(default_factory=list)
 
 
+class RespondToReviewCommentRequest(BaseModel):
+    """Request body for responding to a review comment."""
+    action: str  # confirm | reject | reply
+    reply: Optional[str] = None
+
+
 class CreateCommentRequest(BaseModel):
     """Request body for creating a comment."""
     section: str
@@ -322,6 +328,35 @@ def create_frames_router(require_auth: bool = False) -> APIRouter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Frame not found: {frame_id}",
+            )
+
+    @router.post("/{frame_id}/review-comments/{comment_id}/respond", dependencies=get_auth_dependencies())
+    def respond_to_review_comment(
+        frame_id: str,
+        comment_id: str,
+        request: RespondToReviewCommentRequest,
+        frame_service: FrameService = Depends(get_frame_service),
+        git_service: GitService = Depends(get_git_service),
+    ) -> FrameResponse:
+        """Respond to a review comment (confirm, reject, or reply)."""
+        try:
+            frame = frame_service.respond_to_review_comment(
+                frame_id=frame_id,
+                comment_id=comment_id,
+                action=request.action,
+                reply=request.reply,
+            )
+            _git_commit(git_service, frame_id, f"Review comment {comment_id}: {request.action}")
+            return FrameResponse.from_frame(frame)
+        except FrameNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Frame not found: {frame_id}",
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
             )
 
     @router.delete("/{frame_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=get_auth_dependencies())

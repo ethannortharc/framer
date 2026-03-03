@@ -252,11 +252,81 @@ class FrameService:
         meta_file = frame_dir / "meta.yaml"
         meta = FrameMeta.from_yaml(meta_file.read_text())
 
+        # Auto-assign IDs and default status to each review comment
+        for i, c in enumerate(comments):
+            if "id" not in c:
+                c["id"] = f"rc-{i + 1:03d}"
+            if "status" not in c:
+                c["status"] = "open"
+
         meta.review_summary = summary
         meta.review_comments = comments
         meta.review_recommendation = recommendation
         meta.updated_at = datetime.now(timezone.utc)
 
+        meta_file.write_text(meta.to_yaml())
+
+        frame_file = frame_dir / "frame.md"
+        content = FrameContent.from_markdown(frame_file.read_text())
+        return Frame(meta=meta, content=content)
+
+    def respond_to_review_comment(
+        self,
+        frame_id: str,
+        comment_id: str,
+        action: str,
+        reply: str | None = None,
+    ) -> Frame:
+        """Respond to a review comment (confirm, reject, or reply).
+
+        Args:
+            frame_id: The frame ID.
+            comment_id: The review comment ID (e.g., 'rc-001').
+            action: 'confirm', 'reject', or 'reply'.
+            reply: Optional reply text (required for 'reply' action).
+        """
+        frame_dir = self._get_frame_dir(frame_id)
+        if not frame_dir.exists():
+            raise FrameNotFoundError(f"Frame not found: {frame_id}")
+
+        meta_file = frame_dir / "meta.yaml"
+        meta = FrameMeta.from_yaml(meta_file.read_text())
+
+        if not meta.review_comments:
+            raise ValueError("No review comments found on this frame")
+
+        # Find the comment by ID (or by index for backwards compatibility)
+        comment = None
+        for c in meta.review_comments:
+            if c.get("id") == comment_id:
+                comment = c
+                break
+
+        if comment is None:
+            # Try matching by index for older comments without IDs
+            try:
+                idx = int(comment_id)
+                if 0 <= idx < len(meta.review_comments):
+                    comment = meta.review_comments[idx]
+            except ValueError:
+                pass
+
+        if comment is None:
+            raise ValueError(f"Review comment not found: {comment_id}")
+
+        if action == "confirm":
+            comment["status"] = "confirmed"
+        elif action == "reject":
+            comment["status"] = "rejected"
+        elif action == "reply":
+            comment["status"] = "replied"
+        else:
+            raise ValueError(f"Invalid action: {action}")
+
+        if reply:
+            comment["reply"] = reply
+
+        meta.updated_at = datetime.now(timezone.utc)
         meta_file.write_text(meta.to_yaml())
 
         frame_file = frame_dir / "frame.md"

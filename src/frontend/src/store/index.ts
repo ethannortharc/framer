@@ -53,6 +53,7 @@ interface FrameStore {
 
   // Comments
   addComment: (frameId: string, section: FrameSection, content: string, authorId: string) => Promise<void>;
+  respondToReviewComment: (frameId: string, commentId: string, action: 'confirm' | 'reject' | 'reply', reply?: string) => Promise<void>;
 
   // Get helpers
   getFrame: (id: string) => Frame | undefined;
@@ -446,6 +447,19 @@ export const useFrameStore = create<FrameStore>()(
               : f
           ),
         }));
+      },
+
+      respondToReviewComment: async (frameId, commentId, action, reply) => {
+        try {
+          const api = getAPIClient();
+          const response = await api.respondToReviewComment(frameId, commentId, { action, reply });
+          const updated = transformFrameResponse(response);
+          set((s) => ({
+            frames: s.frames.map((f) => (f.id === frameId ? updated : f)),
+          }));
+        } catch (err) {
+          set({ error: err instanceof Error ? err.message : 'Failed to respond to review comment' });
+        }
       },
 
       // Get helpers

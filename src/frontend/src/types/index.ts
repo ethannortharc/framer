@@ -74,7 +74,7 @@ export interface Frame {
   aiIssues?: AIIssue[];
   aiFeedback?: string;
   reviewSummary?: string;
-  reviewComments?: Array<{ section: string; content: string; severity: string }>;
+  reviewComments?: Array<{ id?: string; section: string; content: string; severity: string; status?: string; reply?: string }>;
   reviewRecommendation?: string;
   comments?: ReviewComment[];
   reviewDecision?: ReviewDecision;

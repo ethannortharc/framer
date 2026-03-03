@@ -39,6 +39,9 @@ import {
   ChevronRight,
   FileText,
   Globe,
+  Check,
+  X,
+  Reply,
 } from 'lucide-react';
 
 function formatHistoryTimestamp(ts: string): string {
@@ -91,6 +94,7 @@ export default function FrameDetailPage() {
     discardUnsavedFrame,
     isFrameSaved,
     evaluateFrame: triggerEvaluate,
+    respondToReviewComment,
     isLoading,
     contentLanguage,
     setContentLanguage,
@@ -113,6 +117,8 @@ export default function FrameDetailPage() {
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [expandedHistoryHash, setExpandedHistoryHash] = useState<string | null>(null);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
   const t = useT();
 
   // Always load fresh data on mount to pick up review summaries, version changes, etc.
@@ -644,22 +650,140 @@ export default function FrameDetailPage() {
               </div>
               <p className="text-sm text-slate-700 leading-relaxed">{frame.reviewSummary}</p>
               {frame.reviewComments && frame.reviewComments.length > 0 && (
-                <div className="space-y-2 border-t border-slate-100 pt-4">
+                <div className="space-y-3 border-t border-slate-100 pt-4">
                   <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('frame.comments')}</h4>
-                  {frame.reviewComments.map((comment, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm">
-                      <Badge
-                        variant={
-                          comment.severity === 'blocker' ? 'error' :
-                          comment.severity === 'concern' ? 'warning' : 'outline'
-                        }
-                        className="text-[10px] mt-0.5 flex-shrink-0"
-                      >
-                        {comment.section.replace(/_/g, ' ')}
-                      </Badge>
-                      <span className="text-slate-700">{comment.content}</span>
-                    </div>
-                  ))}
+                  {frame.reviewComments.map((comment, i) => {
+                    const commentId = comment.id || String(i);
+                    const commentStatus = comment.status || 'open';
+                    const isReplying = replyingCommentId === commentId;
+                    const isOwner = user?.id === frame.ownerId;
+                    const isResolved = commentStatus !== 'open';
+
+                    return (
+                      <div key={commentId} className={cn(
+                        'rounded-lg border p-3 space-y-2',
+                        commentStatus === 'confirmed' ? 'border-emerald-200 bg-emerald-50/50' :
+                        commentStatus === 'rejected' ? 'border-red-200 bg-red-50/50' :
+                        commentStatus === 'replied' ? 'border-blue-200 bg-blue-50/50' :
+                        'border-slate-200 bg-white'
+                      )}>
+                        {/* Comment header with section badge, severity, and status */}
+                        <div className="flex items-start gap-2">
+                          <Badge
+                            variant={
+                              comment.severity === 'blocker' ? 'error' :
+                              comment.severity === 'concern' ? 'warning' : 'outline'
+                            }
+                            className="text-[10px] mt-0.5 flex-shrink-0"
+                          >
+                            {comment.section.replace(/_/g, ' ')}
+                          </Badge>
+                          <span className="flex-1 text-sm text-slate-700">{comment.content}</span>
+                          {isResolved && (
+                            <Badge
+                              variant={
+                                commentStatus === 'confirmed' ? 'success' :
+                                commentStatus === 'rejected' ? 'error' : 'default'
+                              }
+                              className="text-[10px] flex-shrink-0"
+                            >
+                              {t(commentStatus === 'confirmed' ? 'review.confirmed' :
+                                commentStatus === 'rejected' ? 'review.rejected' : 'review.replied')}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Owner reply display */}
+                        {comment.reply && (
+                          <div className="ml-4 pl-3 border-l-2 border-slate-300">
+                            <p className="text-xs font-medium text-slate-500 mb-0.5">{t('review.ownerResponse')}</p>
+                            <p className="text-sm text-slate-700">{comment.reply}</p>
+                          </div>
+                        )}
+
+                        {/* Action buttons (only for frame owner, only for open comments) */}
+                        {isOwner && !isResolved && !isReplying && (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs text-emerald-600 hover:bg-emerald-50"
+                              onClick={() => {
+                                respondToReviewComment(frameId, commentId, 'confirm');
+                                loadFrames();
+                              }}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              {t('review.confirm')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                respondToReviewComment(frameId, commentId, 'reject');
+                                loadFrames();
+                              }}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              {t('review.reject')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs text-blue-600 hover:bg-blue-50"
+                              onClick={() => {
+                                setReplyingCommentId(commentId);
+                                setReplyText('');
+                              }}
+                            >
+                              <Reply className="h-3.5 w-3.5" />
+                              {t('review.reply')}
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Reply form */}
+                        {isReplying && (
+                          <div className="space-y-2 pt-1">
+                            <Textarea
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder={t('review.replyPlaceholder')}
+                              className="min-h-[60px] text-sm resize-y"
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                disabled={!replyText.trim()}
+                                onClick={async () => {
+                                  await respondToReviewComment(frameId, commentId, 'reply', replyText.trim());
+                                  setReplyingCommentId(null);
+                                  setReplyText('');
+                                  loadFrames();
+                                }}
+                              >
+                                {t('review.send')}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  setReplyingCommentId(null);
+                                  setReplyText('');
+                                }}
+                              >
+                                {t('review.cancel')}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

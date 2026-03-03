@@ -228,6 +228,19 @@ const translations = {
   'frameSection.notSpecified': { en: 'Not specified', zh: '未指定' },
   'frameSection.minItems': { en: 'Minimum {n} items required ({m} more needed)', zh: '最少需要 {n} 项（还需 {m} 项）' },
 
+  // ── Review Comments ─────────────────────────────────
+  'review.confirm': { en: 'Confirm', zh: '确认' },
+  'review.reject': { en: 'Reject', zh: '拒绝' },
+  'review.reply': { en: 'Reply', zh: '回复' },
+  'review.confirmed': { en: 'Confirmed', zh: '已确认' },
+  'review.rejected': { en: 'Rejected', zh: '已拒绝' },
+  'review.replied': { en: 'Replied', zh: '已回复' },
+  'review.open': { en: 'Open', zh: '待处理' },
+  'review.replyPlaceholder': { en: 'Write your reply...', zh: '写下你的回复...' },
+  'review.send': { en: 'Send', zh: '发送' },
+  'review.cancel': { en: 'Cancel', zh: '取消' },
+  'review.ownerResponse': { en: 'Owner Response', zh: '负责人回复' },
+
   // ── Feedback Form ────────────────────────────────────
   'feedbackForm.title': { en: 'Implementation Feedback', zh: '实施反馈' },
   'feedbackForm.howDidItGo': { en: 'How did the implementation go?', zh: '实施进展如何？' },
